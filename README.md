@@ -95,6 +95,39 @@ Conversations can be exported as JSON and shared via AirDrop or any iOS Share Sh
 
 ---
 
+## Contributing Translations
+
+Vicinity uses Xcode 15's `.xcstrings` string catalog — all translations live in a single JSON file: [`vicinity/Localizable.xcstrings`](vicinity/Localizable.xcstrings). The privacy permission string lives in [`vicinity/InfoPlist.xcstrings`](vicinity/InfoPlist.xcstrings).
+
+### Option A — Edit the catalog directly (any text editor)
+
+1. Open `vicinity/Localizable.xcstrings` in any editor (it is plain JSON).
+2. For each string key, add an entry under your language code:
+   ```json
+   "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "Your translation" } }
+   ```
+3. Open a Pull Request — the catalog is the only file that needs to change for most languages.
+
+### Option B — Use Xcode's visual translation editor
+
+1. Run the export script to produce `.xcloc` packages:
+   ```bash
+   bash scripts/export-localizations.sh
+   ```
+2. Double-click a `.xcloc` file in Finder — Xcode opens a side-by-side translation editor.
+3. Translate the strings and save.
+4. Copy the updated `Localizable.xcstrings` from inside the `.xcloc` back into `vicinity/`.
+5. Open a Pull Request.
+
+### Adding a new language
+
+1. Add your translations to `vicinity/Localizable.xcstrings` under the new language code (e.g. `"fr"`).
+2. Add the same code to `knownRegions` in `vicinity.xcodeproj/project.pbxproj`.
+3. Translate the privacy permission in `vicinity/InfoPlist.xcstrings` as well.
+4. Add `--exportLanguage <code>` to `scripts/export-localizations.sh` so future contributors can get an `.xcloc` for your language too.
+
+---
+
 ## License
 
 MIT — see [LICENSE](LICENSE) for details.
