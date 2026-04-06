@@ -21,8 +21,25 @@ final class MultipeerSession: NSObject, ObservableObject {
     private var advertiser: MCNearbyServiceAdvertiser
     private var browser: MCNearbyServiceBrowser
 
-    // Closure called when a message arrives so views can persist it
-    var onMessageReceived: ((String, String, String) -> Void)?  // (text, senderName, peerID)
+    // MARK: - Device UUID (permanent identity)
+
+    private let deviceUUID: String = {
+        if let saved = UserDefaults.standard.string(forKey: "deviceUUID") { return saved }
+        let new = UUID().uuidString
+        UserDefaults.standard.set(new, forKey: "deviceUUID")
+        return new
+    }()
+
+    /// Expose device UUID so views and utilities can read it without exposing the setter.
+    var myDeviceUUID: String { deviceUUID }
+
+    // MARK: - Callbacks
+
+    /// Called when a regular chat message arrives (text, senderName, peerID).
+    var onMessageReceived: ((String, String, String) -> Void)?
+
+    /// Called when a handshake arrives from a newly connected peer (peerID, uuid, displayName).
+    var onHandshakeReceived: ((String, String, String) -> Void)?
 
     // MARK: - Init
 
@@ -118,6 +135,31 @@ final class MultipeerSession: NSObject, ObservableObject {
             self?.peers.removeAll { $0.peerID == peerID }
         }
     }
+
+    private func updatePeerUUID(_ peerID: MCPeerID, uuid: String, resolvedDisplayName: String) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            if let index = self.peers.firstIndex(where: { $0.peerID == peerID }) {
+                self.peers[index].uuid = uuid
+                self.peers[index].resolvedDisplayName = resolvedDisplayName
+            }
+        }
+    }
+
+    /// Sends our UUID + display name to the connected peer so they can persist our identity.
+    private func sendHandshake(to peerID: MCPeerID) {
+        let payload: [String: String] = [
+            "type": "handshake",
+            "uuid": deviceUUID,
+            "displayName": myPeerID.displayName
+        ]
+        guard let data = try? JSONEncoder().encode(payload) else { return }
+        do {
+            try session.send(data, toPeers: [peerID], with: .reliable)
+        } catch {
+            print("[MultipeerSession] Failed to send handshake: \(error)")
+        }
+    }
 }
 
 // MARK: - MCSessionDelegate
@@ -128,11 +170,28 @@ extension MultipeerSession: MCSessionDelegate {
                  peer peerID: MCPeerID,
                  didChange state: MCSessionState) {
         updatePeer(peerID, state: state)
+        if state == .connected {
+            sendHandshake(to: peerID)
+        }
     }
 
     func session(_ session: MCSession,
                  didReceive data: Data,
                  fromPeer peerID: MCPeerID) {
+
+        // Intercept handshake messages before treating data as chat.
+        if let map = try? JSONDecoder().decode([String: String].self, from: data),
+           map["type"] == "handshake",
+           let uuid = map["uuid"],
+           let name = map["displayName"] {
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.updatePeerUUID(peerID, uuid: uuid, resolvedDisplayName: name)
+                self.onHandshakeReceived?(peerID.displayName, uuid, name)
+            }
+            return
+        }
+
         guard let text = String(data: data, encoding: .utf8) else { return }
         let senderName = peerID.displayName
         let peerIDString = peerID.displayName

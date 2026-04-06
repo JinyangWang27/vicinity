@@ -12,10 +12,16 @@ struct ChatView: View {
     @State private var inputText = ""
 
     /// Messages filtered to this peer's conversation, sorted by time.
+    /// Filters by UUID when available (stable across display-name changes and device restores),
+    /// falling back to peerID (display name) for pre-v1.1 messages.
     private var messages: [Message] {
-        allMessages
-            .filter { $0.peerID == peer.id }
-            .sorted { $0.timestamp < $1.timestamp }
+        let filtered: [Message]
+        if let uuid = peer.uuid {
+            filtered = allMessages.filter { $0.peerUUID == uuid }
+        } else {
+            filtered = allMessages.filter { $0.peerID == peer.id }
+        }
+        return filtered.sorted { $0.timestamp < $1.timestamp }
     }
 
     var body: some View {
@@ -91,7 +97,8 @@ struct ChatView: View {
             text: trimmed,
             senderName: multipeerSession.myDisplayName,
             isOutgoing: true,
-            peerID: peer.id
+            peerID: peer.id,
+            peerUUID: peer.uuid
         )
         modelContext.insert(message)
         inputText = ""

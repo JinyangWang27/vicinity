@@ -6,6 +6,8 @@ struct Peer: Identifiable, Equatable {
     let id: String  // MCPeerID.displayName
     let peerID: MCPeerID
     var state: MCSessionState
+    var uuid: String?               // populated after handshake
+    var resolvedDisplayName: String? // display name received via handshake
 
     static func == (lhs: Peer, rhs: Peer) -> Bool {
         lhs.id == rhs.id

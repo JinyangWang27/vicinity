@@ -3,6 +3,7 @@ import SwiftData
 
 /// Settings screen — lets users set their display name and export conversations.
 struct SettingsView: View {
+    @EnvironmentObject private var multipeerSession: MultipeerSession
     @Environment(\.dismiss) private var dismiss
     @Query private var allMessages: [Message]
 
@@ -11,6 +12,7 @@ struct SettingsView: View {
     @State private var exportURL: URL?
     @State private var showShareSheet = false
     @State private var showExportPicker = false
+    @State private var didCopyUUID = false
 
     var body: some View {
         NavigationStack {
@@ -26,12 +28,40 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
 
+                Section {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Device ID")
+                            Text("…" + multipeerSession.myDeviceUUID.suffix(8))
+                                .font(.system(.caption, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button {
+                            UIPasteboard.general.string = multipeerSession.myDeviceUUID
+                            didCopyUUID = true
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                                didCopyUUID = false
+                            }
+                        } label: {
+                            Image(systemName: didCopyUUID ? "checkmark" : "doc.on.doc")
+                                .foregroundStyle(didCopyUUID ? .green : .blue)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    Text("Share this ID to restore your identity on a new device.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } header: {
+                    Text("Identity")
+                }
+
                 Section("Export") {
                     Button("Export Conversation as JSON") {
                         showExportPicker = true
                     }
                     .disabled(allMessages.isEmpty)
-                    Text("Share a full conversation log as a JSON file.")
+                    Text("Share a full conversation log as a JSON file. Your Device ID is included so your identity can be restored.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -48,7 +78,10 @@ struct SettingsView: View {
                 }
             }
             .sheet(isPresented: $showExportPicker) {
-                ExportPickerView(allMessages: allMessages) { url in
+                ExportPickerView(
+                    allMessages: allMessages,
+                    deviceUUID: multipeerSession.myDeviceUUID
+                ) { url in
                     exportURL = url
                     showExportPicker = false
                     showShareSheet = url != nil
@@ -72,6 +105,7 @@ struct SettingsView: View {
 /// Lets users pick which peer's conversation to export.
 private struct ExportPickerView: View {
     let allMessages: [Message]
+    let deviceUUID: String
     let onSelect: (URL?) -> Void
 
     private var peers: [String] {
@@ -85,7 +119,13 @@ private struct ExportPickerView: View {
                     let msgs = allMessages
                         .filter { $0.peerID == peerID }
                         .sorted { $0.timestamp < $1.timestamp }
-                    onSelect(ExportManager.exportJSON(peerName: peerID, messages: msgs))
+                    let peerUUID = msgs.first?.peerUUID
+                    onSelect(ExportManager.exportJSON(
+                        peerName: peerID,
+                        peerUUID: peerUUID,
+                        deviceUUID: deviceUUID,
+                        messages: msgs
+                    ))
                 }
             }
             .navigationTitle("Choose Conversation")
