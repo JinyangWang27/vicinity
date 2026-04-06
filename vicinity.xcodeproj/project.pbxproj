@@ -16,6 +16,8 @@ E551129F9E544349A077FE4A /* Message.swift in Sources */ = {isa = PBXBuildFile; f
 B10CE543E83747CD8CB202BB /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D8EB1B040794FF5BEF3EED6 /* SettingsView.swift */; };
 5537B1A769BF407EAC04431F /* ExportManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FDFE56825C74CDD8136DD8F /* ExportManager.swift */; };
 5DB3987F04A74744A4BE46BF /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 2DA9F532005F45C79AB5AFF7 /* PrivacyInfo.xcprivacy */; };
+F1A2B3C4D5E60001 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E60010 /* Localizable.xcstrings */; };
+F1A2B3C4D5E60002 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E60011 /* InfoPlist.xcstrings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -30,6 +32,8 @@ C355198219BE4BCA923F9862 /* Peer.swift */ = {isa = PBXFileReference; lastKnownFi
 2FDFE56825C74CDD8136DD8F /* ExportManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportManager.swift; sourceTree = "<group>"; };
 2DA9F532005F45C79AB5AFF7 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 5E40BC72318C42689645CCA3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+F1A2B3C4D5E60010 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+F1A2B3C4D5E60011 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -53,6 +57,8 @@ AFA705B1C7A241298A996F4B /* Models */,
 005971D7EDE94AD8B3DEFB5E /* Utilities */,
 D68DF88B16E34A3BBA450A2E /* Resources */,
 5E40BC72318C42689645CCA3 /* Info.plist */,
+F1A2B3C4D5E60010 /* Localizable.xcstrings */,
+F1A2B3C4D5E60011 /* InfoPlist.xcstrings */,
 E13A70ECD43140B69D5B47F6 /* Products */,
 );
 sourceTree = "<group>";
@@ -158,6 +164,8 @@ hasScannedForEncodings = 0;
 knownRegions = (
 en,
 Base,
+"zh-Hans",
+"zh-Hant",
 );
 mainGroup = 3FE73C6BADF04CB38A940209;
 productRefGroup = E13A70ECD43140B69D5B47F6 /* Products */;
@@ -175,6 +183,8 @@ isa = PBXResourcesBuildPhase;
 buildActionMask = 2147483647;
 files = (
 5DB3987F04A74744A4BE46BF /* PrivacyInfo.xcprivacy in Resources */,
+F1A2B3C4D5E60001 /* Localizable.xcstrings in Resources */,
+F1A2B3C4D5E60002 /* InfoPlist.xcstrings in Resources */,
 );
 runOnlyForDeploymentPostprocessing = 0;
 };
