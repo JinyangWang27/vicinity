@@ -77,9 +77,11 @@ private struct KnownFriendRow: View {
     }
 
     private var lastSeenLabel: String {
-        if isNearby { return "Nearby now" }
+        if isNearby { return String(localized: "Nearby now") }
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .full
-        return "Last seen \(formatter.localizedString(for: known.lastSeen, relativeTo: Date()))"
+        let relative = formatter.localizedString(for: known.lastSeen, relativeTo: Date())
+        return String(format: String(localized: "last_seen_format",
+                                    defaultValue: "Last seen %@"), relative)
     }
 }
