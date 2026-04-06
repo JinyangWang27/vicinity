@@ -15,10 +15,10 @@ struct Peer: Identifiable, Equatable {
 
     var statusLabel: String {
         switch state {
-        case .notConnected: return "Not Connected"
-        case .connecting:   return "Connecting…"
-        case .connected:    return "Connected"
-        @unknown default:   return "Unknown"
+        case .notConnected: return String(localized: "Not Connected")
+        case .connecting:   return String(localized: "Connecting\u{2026}")
+        case .connected:    return String(localized: "Connected")
+        @unknown default:   return String(localized: "Unknown")
         }
     }
 
