@@ -10,6 +10,6 @@ struct VicinitApp: App {
             ContentView()
                 .environmentObject(multipeerSession)
         }
-        .modelContainer(for: Message.self)
+        .modelContainer(for: [Message.self, KnownPeer.self])
     }
 }

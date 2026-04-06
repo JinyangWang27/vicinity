@@ -9,6 +9,7 @@ struct ContentView: View {
 
     @State private var selectedPeer: Peer?
     @State private var showSettings = false
+    @State private var showKnownFriends = false
 
     var body: some View {
         NavigationStack {
@@ -21,6 +22,13 @@ struct ContentView: View {
             }
             .navigationTitle("Vicinity")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        showKnownFriends = true
+                    } label: {
+                        Image(systemName: "person.2")
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         showSettings = true
@@ -32,24 +40,65 @@ struct ContentView: View {
             .sheet(isPresented: $showSettings) {
                 SettingsView()
             }
+            .sheet(isPresented: $showKnownFriends) {
+                KnownFriendsView()
+            }
             .navigationDestination(item: $selectedPeer) { peer in
                 ChatView(peer: peer)
             }
             .onAppear {
-                // Persist incoming messages from any peer at the root level
-                // so messages are saved regardless of which chat (if any) is open.
-                multipeerSession.onMessageReceived = { text, senderName, peerIDString in
-                    let message = Message(
-                        text: text,
-                        senderName: senderName,
-                        isOutgoing: false,
-                        peerID: peerIDString
-                    )
-                    modelContext.insert(message)
-                }
+                setupCallbacks()
             }
         }
     }
+
+    // MARK: - Multipeer callbacks
+
+    private func setupCallbacks() {
+        // Persist incoming chat messages from any peer at the root level
+        // so messages are saved regardless of which chat (if any) is open.
+        multipeerSession.onMessageReceived = { text, senderName, peerIDString in
+            let uuid = multipeerSession.peers.first { $0.id == peerIDString }?.uuid
+            let message = Message(
+                text: text,
+                senderName: senderName,
+                isOutgoing: false,
+                peerID: peerIDString,
+                peerUUID: uuid
+            )
+            modelContext.insert(message)
+        }
+
+        // Upsert KnownPeer and retroactively tag unlinked messages when a handshake arrives.
+        multipeerSession.onHandshakeReceived = { peerID, uuid, displayName in
+            upsertKnownPeer(uuid: uuid, displayName: displayName)
+            retrotagMessages(peerID: peerID, uuid: uuid)
+        }
+    }
+
+    /// Insert or update the KnownPeer record for this UUID.
+    private func upsertKnownPeer(uuid: String, displayName: String) {
+        let existing = (try? modelContext.fetch(
+            FetchDescriptor<KnownPeer>(predicate: #Predicate { $0.uuid == uuid })
+        )) ?? []
+
+        if let known = existing.first {
+            known.displayName = displayName
+            known.lastSeen = Date()
+        } else {
+            modelContext.insert(KnownPeer(uuid: uuid, displayName: displayName))
+        }
+    }
+
+    /// Tag old messages for this peerID (display name) that were stored before UUID exchange.
+    private func retrotagMessages(peerID: String, uuid: String) {
+        let untagged = (try? modelContext.fetch(
+            FetchDescriptor<Message>(predicate: #Predicate { $0.peerID == peerID && $0.peerUUID == nil })
+        )) ?? []
+        for msg in untagged { msg.peerUUID = uuid }
+    }
+
+    // MARK: - Sub-views
 
     private var emptyStateView: some View {
         VStack(spacing: 16) {
@@ -121,4 +170,3 @@ private struct PeerRow: View {
     ContentView()
         .environmentObject(MultipeerSession())
 }
-

@@ -12,12 +12,17 @@ struct ExportManager {
 
     struct ExportPayload: Codable {
         let exportedAt: String
+        let deviceUUID: String   // this device's permanent UUID — use to restore identity on a new device
         let peer: String
+        let peerUUID: String?    // peer's permanent UUID if known
         let messages: [ExportMessage]
     }
 
     /// Builds a temporary JSON file and returns its URL, or nil on failure.
-    static func exportJSON(peerName: String, messages: [Message]) -> URL? {
+    static func exportJSON(peerName: String,
+                           peerUUID: String?,
+                           deviceUUID: String,
+                           messages: [Message]) -> URL? {
         let formatter = ISO8601DateFormatter()
 
         let exportMessages = messages.map { msg in
@@ -31,7 +36,9 @@ struct ExportManager {
 
         let payload = ExportPayload(
             exportedAt: formatter.string(from: Date()),
+            deviceUUID: deviceUUID,
             peer: peerName,
+            peerUUID: peerUUID,
             messages: exportMessages
         )
 
