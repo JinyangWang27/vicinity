@@ -197,7 +197,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				AB58ECBC2F84149F004CD4DF /* InfoPlist.xcstrings in Resources */,
-				AB58ECBD2F84149F004CD4DF /* Info.plist in Resources */,
 				AB58ECBE2F84149F004CD4DF /* Localizable.xcstrings in Resources */,
 				AB58ECBF2F84149F004CD4DF /* PrivacyInfo.xcprivacy in Resources */,
 			);
