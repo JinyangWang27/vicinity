@@ -65,18 +65,18 @@
         }
       }
     },
-    "Connecting\u2026" : {
+    "Connecting…" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "连接中\u2026"
+            "value" : "连接中…"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "連線中\u2026"
+            "value" : "連線中…"
           }
         }
       }
@@ -233,18 +233,18 @@
         }
       }
     },
-    "Looking for nearby devices\u2026" : {
+    "Looking for nearby devices…" : {
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "正在搜寻附近的设备\u2026"
+            "value" : "正在搜寻附近的设备…"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "正在搜尋附近的裝置\u2026"
+            "value" : "正在搜尋附近的裝置…"
           }
         }
       }
@@ -299,6 +299,7 @@
       }
     },
     "No data leaves your device except to nearby peers." : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hans" : {
           "stringUnit" : {
