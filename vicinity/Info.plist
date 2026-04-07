@@ -24,8 +24,15 @@
 	<array>
 		<string>_vicinity-chat._tcp</string>
 	</array>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Vicinity uses Bluetooth to detect nearby friends and automatically deliver scheduled messages.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Vicinity uses local networking to connect with nearby devices without internet.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>bluetooth-central</string>
+		<string>bluetooth-peripheral</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
