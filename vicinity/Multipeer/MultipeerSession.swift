@@ -44,6 +44,12 @@ final class MultipeerSession: NSObject, ObservableObject {
     /// Combine publisher for handshake events — allows multiple subscribers (services + views).
     let handshakePublisher = PassthroughSubject<(peerID: String, uuid: String, displayName: String), Never>()
 
+    // MARK: - Pending invitation
+
+    /// Display name of a peer who is requesting a connection (shown in confirmation alert).
+    @Published var pendingInvitationPeerName: String?
+    private var pendingInvitationHandler: ((Bool, MCSession?) -> Void)?
+
     // MARK: - Init
 
     override init() {
@@ -98,6 +104,15 @@ final class MultipeerSession: NSObject, ObservableObject {
 
     func disconnect(from peer: Peer) {
         session.cancelConnectPeer(peer.peerID)
+    }
+
+    /// Accepts or rejects a pending connection invitation from a nearby peer.
+    func respondToInvitation(_ accept: Bool) {
+        pendingInvitationHandler?(accept, accept ? session : nil)
+        pendingInvitationHandler = nil
+        DispatchQueue.main.async { [weak self] in
+            self?.pendingInvitationPeerName = nil
+        }
     }
 
     /// Sends a message to a peer identified by display name (MCPeerID.displayName).
@@ -239,13 +254,21 @@ extension MultipeerSession: MCSessionDelegate {
 
 extension MultipeerSession: MCNearbyServiceAdvertiserDelegate {
 
-    /// Auto-accept all incoming invitations from nearby peers.
+    /// Prompts the user to accept or decline an incoming invitation from a nearby peer.
     func advertiser(_ advertiser: MCNearbyServiceAdvertiser,
                     didReceiveInvitationFromPeer peerID: MCPeerID,
                     withContext context: Data?,
                     invitationHandler: @escaping (Bool, MCSession?) -> Void) {
-        addPeerIfNeeded(peerID, state: .connecting)
-        invitationHandler(true, session)
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.pendingInvitationPeerName = peerID.displayName
+            self.pendingInvitationHandler = { [weak self, peerID] accept, session in
+                invitationHandler(accept, session)
+                if accept {
+                    self?.addPeerIfNeeded(peerID, state: .connecting)
+                }
+            }
+        }
     }
 
     func advertiser(_ advertiser: MCNearbyServiceAdvertiser,
