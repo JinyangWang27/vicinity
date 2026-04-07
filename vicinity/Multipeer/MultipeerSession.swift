@@ -41,6 +41,9 @@ final class MultipeerSession: NSObject, ObservableObject {
     /// Called when a handshake arrives from a newly connected peer (peerID, uuid, displayName).
     var onHandshakeReceived: ((String, String, String) -> Void)?
 
+    /// Combine publisher for handshake events — allows multiple subscribers (services + views).
+    let handshakePublisher = PassthroughSubject<(peerID: String, uuid: String, displayName: String), Never>()
+
     // MARK: - Init
 
     override init() {
@@ -95,6 +98,14 @@ final class MultipeerSession: NSObject, ObservableObject {
 
     func disconnect(from peer: Peer) {
         session.cancelConnectPeer(peer.peerID)
+    }
+
+    /// Sends a message to a peer identified by display name (MCPeerID.displayName).
+    /// Used by ScheduledMessageService which may not hold a Peer struct reference.
+    func send(text: String, toPeerDisplayName displayName: String) {
+        guard let peer = peers.first(where: { $0.id == displayName }),
+              peer.isConnected else { return }
+        send(text: text, to: peer)
     }
 
     // MARK: - Private helpers
@@ -188,6 +199,7 @@ extension MultipeerSession: MCSessionDelegate {
                 guard let self else { return }
                 self.updatePeerUUID(peerID, uuid: uuid, resolvedDisplayName: name)
                 self.onHandshakeReceived?(peerID.displayName, uuid, name)
+                self.handshakePublisher.send((peerID: peerID.displayName, uuid: uuid, displayName: name))
             }
             return
         }
