@@ -10,6 +10,7 @@ struct ChatView: View {
 
     @Query private var allMessages: [Message]
     @State private var inputText = ""
+    @State private var showClearConfirmation = false
 
     /// Messages filtered to this peer's conversation, sorted by time.
     /// Filters by UUID when available (stable across display-name changes and device restores),
@@ -44,6 +45,31 @@ struct ChatView: View {
                 }
                 .disabled(peer.uuid == nil)
             }
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button(role: .destructive) {
+                        showClearConfirmation = true
+                    } label: {
+                        Label("Clear Conversation", systemImage: "trash")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+                .disabled(messages.isEmpty)
+            }
+        }
+        .confirmationDialog(
+            "Clear this conversation?",
+            isPresented: $showClearConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Clear", role: .destructive) {
+                for message in messages {
+                    modelContext.delete(message)
+                }
+            }
+        } message: {
+            Text("All messages with \(peer.resolvedDisplayName ?? peer.id) will be permanently deleted from this device.")
         }
     }
 
@@ -56,6 +82,13 @@ struct ChatView: View {
                     ForEach(messages) { message in
                         MessageBubble(message: message)
                             .id(message.id)
+                            .contextMenu {
+                                Button(role: .destructive) {
+                                    modelContext.delete(message)
+                                } label: {
+                                    Label("Delete Message", systemImage: "trash")
+                                }
+                            }
                     }
                 }
                 .padding(.horizontal, 12)
