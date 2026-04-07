@@ -14,6 +14,7 @@ Vicinity uses iOS's built-in [MultipeerConnectivity](https://developer.apple.com
 2. **Connection** — Tap a discovered peer to connect; both sides see a confirmation.
 3. **Chat** — Send and receive text messages in real time using `.reliable` delivery.
 4. **Persistence** — All messages are saved locally on your device using SwiftData.
+5. **Scheduled Messages** — Compose a message that sends automatically the next time a specific friend comes within range, even if the app is in the background.
 
 ---
 
@@ -39,11 +40,25 @@ No third-party dependencies. No package manager setup needed.
 
 ---
 
+## Scheduled & Proximity Messages
+
+Schedule a message for a specific friend and Vicinity will send it automatically the moment they come within Bluetooth range.
+
+- **Schedule** — Open a chat, tap the **clock** icon in the top-right, then tap **+** to compose a scheduled message.
+- **Auto-send (foreground)** — When the target peer connects and completes the handshake, the message is sent immediately with no user action required.
+- **Auto-send (background)** — Vicinity uses Core Bluetooth to wake itself when the target peer's device is detected nearby. Once awake, MultipeerConnectivity re-establishes the connection and delivers the message automatically.
+- **Notification** — A local notification confirms delivery: *"Scheduled message sent — To Alice: hey!"*
+- **Manage** — The Scheduled Messages screen shows pending, sent, and cancelled messages. Swipe to cancel any pending message.
+
+> **Note:** Background delivery requires Bluetooth permission ("Always" is not required — standard Bluetooth permission is sufficient) and that both devices are running iOS 17+.
+
+---
+
 ## Privacy Guarantee
 
 Vicinity is privacy-by-design:
 
-- **No internet** — The app declares zero internet capability. All communication happens directly between nearby devices.
+- **No internet** — All communication happens directly between nearby devices over Bluetooth and peer-to-peer Wi-Fi.
 - **No accounts** — There is no sign-in, registration, or user database.
 - **No tracking** — The `PrivacyInfo.xcprivacy` manifest declares zero data collection. No analytics, no crash-reporting SDKs, no ads.
 - **No servers** — Messages travel directly from device to device over Bluetooth/Wi-Fi Direct. Nothing is stored outside your device.
@@ -56,20 +71,28 @@ Vicinity is privacy-by-design:
 ```
 vicinity/
 ├── App/
-│   └── VicinitApp.swift          # @main entry point, SwiftData container
+│   └── VicinitApp.swift              # @main entry point, SwiftData container, service injection
 ├── Multipeer/
-│   └── MultipeerSession.swift    # All MC logic (ObservableObject)
+│   └── MultipeerSession.swift        # All MC logic (ObservableObject) + Combine handshake publisher
 ├── Models/
-│   ├── Message.swift             # SwiftData @Model
-│   └── Peer.swift                # Peer representation + state
+│   ├── Message.swift                 # SwiftData @Model — chat messages
+│   ├── Peer.swift                    # Volatile peer state + connection status
+│   ├── KnownPeer.swift               # SwiftData @Model — persisted friend identities
+│   └── ScheduledMessage.swift        # SwiftData @Model — pending/sent/cancelled scheduled messages
+├── Services/
+│   ├── ScheduledMessageService.swift # Delivery orchestration, CRUD, local notifications
+│   └── ProximityBluetoothService.swift # Core Bluetooth dual-role (advertise + scan) for background wakeup
 ├── Views/
-│   ├── ContentView.swift         # Root view — peer list
-│   ├── ChatView.swift            # Conversation thread
-│   └── SettingsView.swift        # Display name + export
+│   ├── ContentView.swift             # Root view — peer list
+│   ├── ChatView.swift                # Conversation thread
+│   ├── KnownFriendsView.swift        # Persisted friends list
+│   ├── ScheduledMessagesView.swift   # Scheduled messages per peer
+│   ├── ScheduleMessageView.swift     # Compose new scheduled message
+│   └── SettingsView.swift            # Display name + export
 ├── Utilities/
-│   └── ExportManager.swift       # JSON export via system Share Sheet
+│   └── ExportManager.swift           # JSON export via system Share Sheet
 └── Resources/
-    └── PrivacyInfo.xcprivacy     # App Store privacy manifest
+    └── PrivacyInfo.xcprivacy         # App Store privacy manifest
 ```
 
 ---
