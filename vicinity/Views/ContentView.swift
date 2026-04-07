@@ -48,21 +48,6 @@ struct ContentView: View {
             .navigationDestination(item: $selectedPeer) { peer in
                 ChatView(peer: peer)
             }
-            .alert("Connection Request", isPresented: Binding(
-                get: { multipeerSession.pendingInvitationPeerName != nil },
-                set: { _ in }
-            )) {
-                Button("Accept") {
-                    multipeerSession.respondToInvitation(true)
-                }
-                Button("Decline", role: .cancel) {
-                    multipeerSession.respondToInvitation(false)
-                }
-            } message: {
-                if let name = multipeerSession.pendingInvitationPeerName {
-                    Text("\(name) wants to chat.")
-                }
-            }
             .onAppear {
                 setupCallbacks()
             }

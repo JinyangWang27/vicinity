@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		1F7D0674BA584697B8C5DE82CD97CBCE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E964F09EE3764B95B077C6E2EA225F46 /* Assets.xcassets */; };
-		AB58ECC02F84149F004CD4DF /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB58ECBD2F84149F004CD4DF /* OnboardingView.swift */; };
 		AB58ECB22F84149F004CD4DF /* ExportManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB58ECAB2F84149F004CD4DF /* ExportManager.swift */; };
 		AB58ECB32F84149F004CD4DF /* MultipeerSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB58ECA72F84149F004CD4DF /* MultipeerSession.swift */; };
 		AB58ECB42F84149F004CD4DF /* KnownFriendsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB58ECAF2F84149F004CD4DF /* KnownFriendsView.swift */; };
@@ -45,7 +44,6 @@
 		AB58ECAE2F84149F004CD4DF /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		AB58ECAF2F84149F004CD4DF /* KnownFriendsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnownFriendsView.swift; sourceTree = "<group>"; };
 		AB58ECB02F84149F004CD4DF /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
-		AB58ECBD2F84149F004CD4DF /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		AB62D1B82F85619F0011BAD6 /* ScheduledMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduledMessage.swift; sourceTree = "<group>"; };
 		AB62D1BA2F8565340011BAD6 /* ProximityBluetoothService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProximityBluetoothService.swift; sourceTree = "<group>"; };
 		AB62D1BB2F8565340011BAD6 /* ScheduledMessageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduledMessageService.swift; sourceTree = "<group>"; };
@@ -134,7 +132,6 @@
 		AB58ECB12F84149F004CD4DF /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				AB58ECBD2F84149F004CD4DF /* OnboardingView.swift */,
 				AB62D1C12F8565980011BAD6 /* ScheduleMessageView.swift */,
 				AB62D1BF2F8565850011BAD6 /* ScheduledMessagesView.swift */,
 				AB58ECAD2F84149F004CD4DF /* ChatView.swift */,
@@ -239,7 +236,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				AB58ECC02F84149F004CD4DF /* OnboardingView.swift in Sources */,
 				AB62D1C02F8565850011BAD6 /* ScheduledMessagesView.swift in Sources */,
 				AB58ECB22F84149F004CD4DF /* ExportManager.swift in Sources */,
 				AB58ECB32F84149F004CD4DF /* MultipeerSession.swift in Sources */,

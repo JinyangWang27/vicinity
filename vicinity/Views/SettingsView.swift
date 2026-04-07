@@ -74,14 +74,7 @@ struct SettingsView: View {
             .navigationTitle("Settings")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") {
-                        let trimmed = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
-                        if !trimmed.isEmpty && trimmed != multipeerSession.myDisplayName {
-                            multipeerSession.updateDisplayName(trimmed)
-                            UserDefaults.standard.set(trimmed, forKey: "displayName")
-                        }
-                        dismiss()
-                    }
+                    Button("Done") { dismiss() }
                 }
             }
             .sheet(isPresented: $showExportPicker) {
