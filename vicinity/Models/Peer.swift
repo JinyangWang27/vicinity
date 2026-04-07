@@ -2,7 +2,7 @@ import Foundation
 import MultipeerConnectivity
 
 /// Represents a discovered nearby peer and its current connection state.
-struct Peer: Identifiable, Equatable {
+struct Peer: Identifiable, Equatable, Hashable {
     let id: String  // MCPeerID.displayName
     let peerID: MCPeerID
     var state: MCSessionState
@@ -11,6 +11,10 @@ struct Peer: Identifiable, Equatable {
 
     static func == (lhs: Peer, rhs: Peer) -> Bool {
         lhs.id == rhs.id
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
     }
 
     var statusLabel: String {
