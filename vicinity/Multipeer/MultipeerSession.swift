@@ -16,7 +16,7 @@ final class MultipeerSession: NSObject, ObservableObject {
 
     private let serviceType = "vicinity-chat"  // max 15 chars, lowercase + hyphens only
 
-    private let myPeerID: MCPeerID
+    private var myPeerID: MCPeerID
     private var session: MCSession
     private var advertiser: MCNearbyServiceAdvertiser
     private var browser: MCNearbyServiceBrowser
@@ -43,6 +43,12 @@ final class MultipeerSession: NSObject, ObservableObject {
 
     /// Combine publisher for handshake events — allows multiple subscribers (services + views).
     let handshakePublisher = PassthroughSubject<(peerID: String, uuid: String, displayName: String), Never>()
+
+    // MARK: - Pending invitation
+
+    /// Display name of a peer who is requesting a connection (shown in confirmation alert).
+    @Published var pendingInvitationPeerName: String?
+    private var pendingInvitationHandler: ((Bool, MCSession?) -> Void)?
 
     // MARK: - Init
 
@@ -98,6 +104,39 @@ final class MultipeerSession: NSObject, ObservableObject {
 
     func disconnect(from peer: Peer) {
         session.cancelConnectPeer(peer.peerID)
+    }
+
+    /// Accepts or rejects a pending connection invitation from a nearby peer.
+    func respondToInvitation(_ accept: Bool) {
+        pendingInvitationHandler?(accept, accept ? session : nil)
+        pendingInvitationHandler = nil
+        DispatchQueue.main.async { [weak self] in
+            self?.pendingInvitationPeerName = nil
+        }
+    }
+
+    /// Restarts the MC stack with a new display name (called after onboarding or Settings change).
+    /// Must be called on the main thread (all SwiftUI action callsites satisfy this).
+    func updateDisplayName(_ name: String) {
+        advertiser.stopAdvertisingPeer()
+        browser.stopBrowsingForPeers()
+        session.disconnect()
+
+        // Clear peers synchronously before restarting to avoid stale entries.
+        peers = []
+
+        myPeerID = MCPeerID(displayName: name)
+        session = MCSession(peer: myPeerID, securityIdentity: nil, encryptionPreference: .required)
+        session.delegate = self
+
+        advertiser = MCNearbyServiceAdvertiser(peer: myPeerID, discoveryInfo: nil, serviceType: serviceType)
+        advertiser.delegate = self
+
+        browser = MCNearbyServiceBrowser(peer: myPeerID, serviceType: serviceType)
+        browser.delegate = self
+
+        startAdvertising()
+        startBrowsing()
     }
 
     /// Sends a message to a peer identified by display name (MCPeerID.displayName).
@@ -239,13 +278,21 @@ extension MultipeerSession: MCSessionDelegate {
 
 extension MultipeerSession: MCNearbyServiceAdvertiserDelegate {
 
-    /// Auto-accept all incoming invitations from nearby peers.
+    /// Prompts the user to accept or decline an incoming invitation from a nearby peer.
     func advertiser(_ advertiser: MCNearbyServiceAdvertiser,
                     didReceiveInvitationFromPeer peerID: MCPeerID,
                     withContext context: Data?,
                     invitationHandler: @escaping (Bool, MCSession?) -> Void) {
-        addPeerIfNeeded(peerID, state: .connecting)
-        invitationHandler(true, session)
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.pendingInvitationPeerName = peerID.displayName
+            self.pendingInvitationHandler = { [weak self, peerID] accept, session in
+                invitationHandler(accept, session)
+                if accept {
+                    self?.addPeerIfNeeded(peerID, state: .connecting)
+                }
+            }
+        }
     }
 
     func advertiser(_ advertiser: MCNearbyServiceAdvertiser,
