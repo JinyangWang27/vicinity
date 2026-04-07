@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1F7D0674BA584697B8C5DE82CD97CBCE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E964F09EE3764B95B077C6E2EA225F46 /* Assets.xcassets */; };
 		AB58ECB22F84149F004CD4DF /* ExportManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB58ECAB2F84149F004CD4DF /* ExportManager.swift */; };
 		AB58ECB32F84149F004CD4DF /* MultipeerSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB58ECA72F84149F004CD4DF /* MultipeerSession.swift */; };
 		AB58ECB42F84149F004CD4DF /* KnownFriendsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB58ECAF2F84149F004CD4DF /* KnownFriendsView.swift */; };
@@ -18,9 +19,13 @@
 		AB58ECBA2F84149F004CD4DF /* Message.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB58ECA42F84149F004CD4DF /* Message.swift */; };
 		AB58ECBB2F84149F004CD4DF /* VicinitApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB58EC9E2F84149F004CD4DF /* VicinitApp.swift */; };
 		AB58ECBC2F84149F004CD4DF /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = AB58ECA12F84149F004CD4DF /* InfoPlist.xcstrings */; };
-		AB58ECBD2F84149F004CD4DF /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = AB58ECA02F84149F004CD4DF /* Info.plist */; };
 		AB58ECBE2F84149F004CD4DF /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = AB58ECA22F84149F004CD4DF /* Localizable.xcstrings */; };
 		AB58ECBF2F84149F004CD4DF /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = AB58ECA92F84149F004CD4DF /* PrivacyInfo.xcprivacy */; };
+		AB62D1B92F85619F0011BAD6 /* ScheduledMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB62D1B82F85619F0011BAD6 /* ScheduledMessage.swift */; };
+		AB62D1BD2F8565340011BAD6 /* ScheduledMessageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB62D1BB2F8565340011BAD6 /* ScheduledMessageService.swift */; };
+		AB62D1BE2F8565340011BAD6 /* ProximityBluetoothService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB62D1BA2F8565340011BAD6 /* ProximityBluetoothService.swift */; };
+		AB62D1C02F8565850011BAD6 /* ScheduledMessagesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB62D1BF2F8565850011BAD6 /* ScheduledMessagesView.swift */; };
+		AB62D1C22F8565980011BAD6 /* ScheduleMessageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB62D1C12F8565980011BAD6 /* ScheduleMessageView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -39,6 +44,12 @@
 		AB58ECAE2F84149F004CD4DF /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		AB58ECAF2F84149F004CD4DF /* KnownFriendsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnownFriendsView.swift; sourceTree = "<group>"; };
 		AB58ECB02F84149F004CD4DF /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		AB62D1B82F85619F0011BAD6 /* ScheduledMessage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduledMessage.swift; sourceTree = "<group>"; };
+		AB62D1BA2F8565340011BAD6 /* ProximityBluetoothService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProximityBluetoothService.swift; sourceTree = "<group>"; };
+		AB62D1BB2F8565340011BAD6 /* ScheduledMessageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduledMessageService.swift; sourceTree = "<group>"; };
+		AB62D1BF2F8565850011BAD6 /* ScheduledMessagesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduledMessagesView.swift; sourceTree = "<group>"; };
+		AB62D1C12F8565980011BAD6 /* ScheduleMessageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScheduleMessageView.swift; sourceTree = "<group>"; };
+		E964F09EE3764B95B077C6E2EA225F46 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -65,6 +76,7 @@
 				AB58ECAC2F84149F004CD4DF /* Utilities */,
 				AB58ECB12F84149F004CD4DF /* Views */,
 				E13A70ECD43140B69D5B47F6 /* Products */,
+				AB62D1BC2F8565340011BAD6 /* Services */,
 			);
 			sourceTree = "<group>";
 		};
@@ -81,6 +93,7 @@
 			isa = PBXGroup;
 			children = (
 				AB58ECA32F84149F004CD4DF /* KnownPeer.swift */,
+				AB62D1B82F85619F0011BAD6 /* ScheduledMessage.swift */,
 				AB58ECA42F84149F004CD4DF /* Message.swift */,
 				AB58ECA52F84149F004CD4DF /* Peer.swift */,
 			);
@@ -100,6 +113,7 @@
 		AB58ECAA2F84149F004CD4DF /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				E964F09EE3764B95B077C6E2EA225F46 /* Assets.xcassets */,
 				AB58ECA92F84149F004CD4DF /* PrivacyInfo.xcprivacy */,
 			);
 			name = Resources;
@@ -118,6 +132,8 @@
 		AB58ECB12F84149F004CD4DF /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				AB62D1C12F8565980011BAD6 /* ScheduleMessageView.swift */,
+				AB62D1BF2F8565850011BAD6 /* ScheduledMessagesView.swift */,
 				AB58ECAD2F84149F004CD4DF /* ChatView.swift */,
 				AB58ECAE2F84149F004CD4DF /* ContentView.swift */,
 				AB58ECAF2F84149F004CD4DF /* KnownFriendsView.swift */,
@@ -126,6 +142,16 @@
 			name = Views;
 			path = vicinity/Views;
 			sourceTree = "<group>";
+		};
+		AB62D1BC2F8565340011BAD6 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				AB62D1BA2F8565340011BAD6 /* ProximityBluetoothService.swift */,
+				AB62D1BB2F8565340011BAD6 /* ScheduledMessageService.swift */,
+			);
+			name = Services;
+			path = vicinity/Services;
+			sourceTree = SOURCE_ROOT;
 		};
 		E13A70ECD43140B69D5B47F6 /* Products */ = {
 			isa = PBXGroup;
@@ -196,6 +222,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1F7D0674BA584697B8C5DE82CD97CBCE /* Assets.xcassets in Resources */,
 				AB58ECBC2F84149F004CD4DF /* InfoPlist.xcstrings in Resources */,
 				AB58ECBE2F84149F004CD4DF /* Localizable.xcstrings in Resources */,
 				AB58ECBF2F84149F004CD4DF /* PrivacyInfo.xcprivacy in Resources */,
@@ -209,6 +236,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AB62D1C02F8565850011BAD6 /* ScheduledMessagesView.swift in Sources */,
 				AB58ECB22F84149F004CD4DF /* ExportManager.swift in Sources */,
 				AB58ECB32F84149F004CD4DF /* MultipeerSession.swift in Sources */,
 				AB58ECB42F84149F004CD4DF /* KnownFriendsView.swift in Sources */,
@@ -216,8 +244,12 @@
 				AB58ECB62F84149F004CD4DF /* Peer.swift in Sources */,
 				AB58ECB72F84149F004CD4DF /* KnownPeer.swift in Sources */,
 				AB58ECB82F84149F004CD4DF /* ChatView.swift in Sources */,
+				AB62D1C22F8565980011BAD6 /* ScheduleMessageView.swift in Sources */,
 				AB58ECB92F84149F004CD4DF /* ContentView.swift in Sources */,
 				AB58ECBA2F84149F004CD4DF /* Message.swift in Sources */,
+				AB62D1BD2F8565340011BAD6 /* ScheduledMessageService.swift in Sources */,
+				AB62D1BE2F8565340011BAD6 /* ProximityBluetoothService.swift in Sources */,
+				AB62D1B92F85619F0011BAD6 /* ScheduledMessage.swift in Sources */,
 				AB58ECBB2F84149F004CD4DF /* VicinitApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
