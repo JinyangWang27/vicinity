@@ -32,6 +32,19 @@ struct ChatView: View {
         }
         .navigationTitle(peer.id)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                NavigationLink(
+                    destination: ScheduledMessagesView(
+                        peerUUID: peer.uuid ?? "",
+                        peerDisplayName: peer.resolvedDisplayName ?? peer.id
+                    )
+                ) {
+                    Image(systemName: "clock.badge.plus")
+                }
+                .disabled(peer.uuid == nil)
+            }
+        }
     }
 
     // MARK: - Message list
