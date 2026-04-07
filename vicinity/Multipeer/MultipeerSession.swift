@@ -16,7 +16,7 @@ final class MultipeerSession: NSObject, ObservableObject {
 
     private let serviceType = "vicinity-chat"  // max 15 chars, lowercase + hyphens only
 
-    private let myPeerID: MCPeerID
+    private var myPeerID: MCPeerID
     private var session: MCSession
     private var advertiser: MCNearbyServiceAdvertiser
     private var browser: MCNearbyServiceBrowser
@@ -113,6 +113,30 @@ final class MultipeerSession: NSObject, ObservableObject {
         DispatchQueue.main.async { [weak self] in
             self?.pendingInvitationPeerName = nil
         }
+    }
+
+    /// Restarts the MC stack with a new display name (called after onboarding or Settings change).
+    /// Must be called on the main thread (all SwiftUI action callsites satisfy this).
+    func updateDisplayName(_ name: String) {
+        advertiser.stopAdvertisingPeer()
+        browser.stopBrowsingForPeers()
+        session.disconnect()
+
+        // Clear peers synchronously before restarting to avoid stale entries.
+        peers = []
+
+        myPeerID = MCPeerID(displayName: name)
+        session = MCSession(peer: myPeerID, securityIdentity: nil, encryptionPreference: .required)
+        session.delegate = self
+
+        advertiser = MCNearbyServiceAdvertiser(peer: myPeerID, discoveryInfo: nil, serviceType: serviceType)
+        advertiser.delegate = self
+
+        browser = MCNearbyServiceBrowser(peer: myPeerID, serviceType: serviceType)
+        browser.delegate = self
+
+        startAdvertising()
+        startBrowsing()
     }
 
     /// Sends a message to a peer identified by display name (MCPeerID.displayName).
