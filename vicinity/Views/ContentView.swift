@@ -5,6 +5,8 @@ import SwiftData
 /// Also owns the global incoming-message persistence handler.
 struct ContentView: View {
     @EnvironmentObject var multipeerSession: MultipeerSession
+    @EnvironmentObject var scheduledMessageService: ScheduledMessageService
+    @EnvironmentObject var proximityBluetoothService: ProximityBluetoothService
     @Environment(\.modelContext) private var modelContext
 
     @State private var selectedPeer: Peer?
@@ -70,10 +72,23 @@ struct ContentView: View {
         }
 
         // Upsert KnownPeer and retroactively tag unlinked messages when a handshake arrives.
+        // ScheduledMessageService delivery is handled via its own Combine subscription.
         multipeerSession.onHandshakeReceived = { peerID, uuid, displayName in
             upsertKnownPeer(uuid: uuid, displayName: displayName)
             retrotagMessages(peerID: peerID, uuid: uuid)
         }
+
+        syncProximityScanTargets()
+    }
+
+    /// Syncs ProximityBluetoothService scan targets with currently pending scheduled messages.
+    private func syncProximityScanTargets() {
+        let pending = ScheduledMessageStatus.pending
+        let all = (try? modelContext.fetch(
+            FetchDescriptor<ScheduledMessage>(predicate: #Predicate { $0.status == pending })
+        )) ?? []
+        let uuids = Array(Set(all.map(\.targetPeerUUID)))
+        proximityBluetoothService.updateScanTargets(uuids)
     }
 
     /// Insert or update the KnownPeer record for this UUID.
@@ -167,6 +182,14 @@ private struct PeerRow: View {
 }
 
 #Preview {
-    ContentView()
-        .environmentObject(MultipeerSession())
+    let session = MultipeerSession()
+    let schema = Schema([Message.self, KnownPeer.self, ScheduledMessage.self])
+    let container = try! ModelContainer(for: schema, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
+    let sms = ScheduledMessageService(modelContext: container.mainContext, multipeerSession: session)
+    let pbs = ProximityBluetoothService(deviceUUID: session.myDeviceUUID)
+    return ContentView()
+        .environmentObject(session)
+        .environmentObject(sms)
+        .environmentObject(pbs)
+        .modelContainer(container)
 }
