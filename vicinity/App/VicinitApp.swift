@@ -4,6 +4,8 @@ import SwiftData
 @main
 struct VicinitApp: App {
 
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+
     private let modelContainer: ModelContainer
     @StateObject private var multipeerSession: MultipeerSession
     @StateObject private var scheduledMessageService: ScheduledMessageService
@@ -29,10 +31,17 @@ struct VicinitApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .environmentObject(multipeerSession)
-                .environmentObject(scheduledMessageService)
-                .environmentObject(proximityBluetoothService)
+            Group {
+                if hasCompletedOnboarding {
+                    ContentView()
+                        .environmentObject(multipeerSession)
+                        .environmentObject(scheduledMessageService)
+                        .environmentObject(proximityBluetoothService)
+                } else {
+                    OnboardingView()
+                        .environmentObject(multipeerSession)
+                }
+            }
         }
         .modelContainer(modelContainer)
     }
