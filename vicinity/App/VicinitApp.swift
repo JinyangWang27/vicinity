@@ -1,10 +1,23 @@
 import SwiftUI
 import SwiftData
 
+enum AppColorScheme: String {
+    case system, light, dark
+
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: return nil
+        case .light:  return .light
+        case .dark:   return .dark
+        }
+    }
+}
+
 @main
 struct VicinitApp: App {
 
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+    @AppStorage("appColorScheme") private var appColorScheme: AppColorScheme = .system
 
     private let modelContainer: ModelContainer
     @StateObject private var multipeerSession: MultipeerSession
@@ -42,6 +55,7 @@ struct VicinitApp: App {
                         .environmentObject(multipeerSession)
                 }
             }
+            .preferredColorScheme(appColorScheme.colorScheme)
         }
         .modelContainer(modelContainer)
     }

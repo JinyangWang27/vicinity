@@ -7,6 +7,8 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Query private var allMessages: [Message]
 
+    @AppStorage("appColorScheme") private var appColorScheme: AppColorScheme = .system
+
     @State private var displayName: String =
         UserDefaults.standard.string(forKey: "displayName") ?? ""
     @State private var exportURL: URL?
@@ -64,6 +66,15 @@ struct SettingsView: View {
                     Text("Share a full conversation log as a JSON file. Your Device ID is included so your identity can be restored.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                }
+
+                Section("Appearance") {
+                    Picker("Theme", selection: $appColorScheme) {
+                        Text("Light").tag(AppColorScheme.light)
+                        Text("Dark").tag(AppColorScheme.dark)
+                        Text("System").tag(AppColorScheme.system)
+                    }
+                    .pickerStyle(.segmented)
                 }
 
                 Section("About") {
