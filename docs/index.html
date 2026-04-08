@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vicinity — Offline Bluetooth Chat</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0a0a0f;
+      color: #f0f0f5;
+      line-height: 1.6;
+    }
+    a { color: #6e9fff; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    header {
+      text-align: center;
+      padding: 80px 24px 60px;
+    }
+    header img {
+      width: 120px;
+      height: 120px;
+      border-radius: 26px;
+      margin-bottom: 24px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    }
+    header h1 {
+      font-size: 3rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 12px;
+    }
+    header p {
+      font-size: 1.2rem;
+      color: #a0a0b0;
+      max-width: 500px;
+      margin: 0 auto 32px;
+    }
+    .badge {
+      display: inline-block;
+      background: #1a1a2e;
+      border: 1px solid #2a2a4a;
+      border-radius: 12px;
+      padding: 12px 24px;
+      font-size: 0.9rem;
+      color: #8080a0;
+      margin: 4px;
+    }
+    .badge strong { color: #f0f0f5; }
+
+    .features {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 60px 24px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 24px;
+    }
+    .feature {
+      background: #111118;
+      border: 1px solid #1e1e30;
+      border-radius: 16px;
+      padding: 28px;
+    }
+    .feature .icon { font-size: 2rem; margin-bottom: 12px; }
+    .feature h3 { font-size: 1.1rem; margin-bottom: 8px; }
+    .feature p { color: #808090; font-size: 0.95rem; }
+
+    .cta {
+      text-align: center;
+      padding: 60px 24px 80px;
+    }
+    .cta a.app-store {
+      display: inline-block;
+      background: #fff;
+      color: #000;
+      border-radius: 14px;
+      padding: 14px 28px;
+      font-weight: 600;
+      font-size: 1rem;
+      margin: 8px;
+      transition: opacity 0.2s;
+    }
+    .cta a.app-store:hover { opacity: 0.85; text-decoration: none; }
+    .cta a.github {
+      display: inline-block;
+      background: #1e1e30;
+      border: 1px solid #2a2a4a;
+      color: #f0f0f5;
+      border-radius: 14px;
+      padding: 14px 28px;
+      font-weight: 600;
+      font-size: 1rem;
+      margin: 8px;
+    }
+
+    footer {
+      text-align: center;
+      padding: 32px 24px;
+      border-top: 1px solid #1a1a2a;
+      color: #505060;
+      font-size: 0.85rem;
+    }
+    footer a { color: #6060a0; }
+  </style>
+</head>
+<body>
+
+<header>
+  <img src="icon.png" alt="Vicinity app icon" />
+  <h1>Vicinity</h1>
+  <p>Chat with the people around you. No internet. No accounts. No tracking.</p>
+  <div>
+    <span class="badge">📡 <strong>Bluetooth</strong> &amp; P2P Wi-Fi</span>
+    <span class="badge">🔒 <strong>Zero</strong> data collection</span>
+    <span class="badge">🌐 <strong>No</strong> internet required</span>
+    <span class="badge">🔓 <strong>Open source</strong></span>
+  </div>
+</header>
+
+<section class="features">
+  <div class="feature">
+    <div class="icon">📡</div>
+    <h3>Truly Offline</h3>
+    <p>Works over Bluetooth and peer-to-peer Wi-Fi. No router, no internet, no servers — ever.</p>
+  </div>
+  <div class="feature">
+    <div class="icon">🔒</div>
+    <h3>Private by Design</h3>
+    <p>Messages never leave your device to a server. No accounts. No phone numbers. No tracking.</p>
+  </div>
+  <div class="feature">
+    <div class="icon">⏱</div>
+    <h3>Scheduled Messages</h3>
+    <p>Write a message now, send it automatically the moment your friend comes within Bluetooth range.</p>
+  </div>
+  <div class="feature">
+    <div class="icon">⚡️</div>
+    <h3>Lightweight</h3>
+    <p>No third-party dependencies. No bloat. Built with SwiftUI and Apple's MultipeerConnectivity.</p>
+  </div>
+</section>
+
+<div class="cta">
+  <p style="color:#606070; margin-bottom:20px;">Coming soon to the App Store.</p>
+  <a class="github" href="https://github.com/JinyangWang27/vicinity">View on GitHub →</a>
+</div>
+
+<footer>
+  <p>© 2026 Jinyang Wang &nbsp;·&nbsp; <a href="privacy.html">Privacy Policy</a> &nbsp;·&nbsp; <a href="https://github.com/JinyangWang27/vicinity">Open Source</a></p>
+</footer>
+
+</body>
+</html>
