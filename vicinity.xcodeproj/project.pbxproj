@@ -435,6 +435,10 @@
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				VALIDATE_PRODUCT = YES;
+				DEPLOYMENT_POSTPROCESSING = YES;
+				LLVM_LTO = monolithic;
+				STRIP_INSTALLED_PRODUCT = YES;
+				STRIP_SWIFT_SYMBOLS = YES;
 			};
 			name = Release;
 		};
