@@ -22,9 +22,6 @@ struct SettingsView: View {
                 Section("Display Name") {
                     TextField("Your name", text: $displayName)
                         .autocorrectionDisabled()
-                        .onChange(of: displayName) { _, newValue in
-                            UserDefaults.standard.set(newValue, forKey: "displayName")
-                        }
                     Text("This name is visible to nearby peers.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
