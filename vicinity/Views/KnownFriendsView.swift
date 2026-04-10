@@ -50,7 +50,9 @@ struct KnownFriendsView: View {
     }
 
     private func isNearby(_ known: KnownPeer) -> Bool {
-        multipeerSession.peers.contains { $0.uuid == known.uuid }
+        // UUID match: peer is connected and has completed a handshake this session.
+        // Display name match: peer is discovered but not yet connected/handshaked.
+        multipeerSession.peers.contains { $0.uuid == known.uuid || $0.id == known.displayName }
     }
 }
 
