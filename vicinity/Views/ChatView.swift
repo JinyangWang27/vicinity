@@ -12,12 +12,19 @@ struct ChatView: View {
     @State private var inputText = ""
     @State private var showClearConfirmation = false
 
+    /// Live peer entry from the session — reflects the current connection state and UUID
+    /// even when those fields have changed since this view was pushed.
+    private var livePeer: Peer? {
+        multipeerSession.peers.first { $0.id == peer.id }
+    }
+
     /// Messages filtered to this peer's conversation, sorted by time.
-    /// Filters by UUID when available (stable across display-name changes and device restores),
-    /// falling back to peerID (display name) for pre-v1.1 messages.
+    /// Prefers the live UUID (updated after handshake) over the snapshot value so the
+    /// correct filter is applied as soon as the UUID becomes known mid-session.
+    /// Falls back to peerID (display name) for pre-handshake and pre-v1.1 messages.
     private var messages: [Message] {
         let filtered: [Message]
-        if let uuid = peer.uuid {
+        if let uuid = livePeer?.uuid ?? peer.uuid {
             filtered = allMessages.filter { $0.peerUUID == uuid }
         } else {
             filtered = allMessages.filter { $0.peerID == peer.id }
@@ -124,27 +131,32 @@ struct ChatView: View {
             Button(action: sendMessage) {
                 Image(systemName: "arrow.up.circle.fill")
                     .font(.system(size: 30))
-                    .foregroundStyle(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? .gray : .blue)
+                    .foregroundStyle(canSend ? .blue : .gray)
             }
-            .disabled(inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .disabled(!canSend)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(Color(.systemBackground))
     }
 
-    private func sendMessage() {
-        let trimmed = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
+    private var canSend: Bool {
+        !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        livePeer?.isConnected == true
+    }
 
-        multipeerSession.send(text: trimmed, to: peer)
+    private func sendMessage() {
+        guard canSend, let livePeer else { return }
+        let trimmed = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        multipeerSession.send(text: trimmed, to: livePeer)
 
         let message = Message(
             text: trimmed,
             senderName: multipeerSession.myDisplayName,
             isOutgoing: true,
-            peerID: peer.id,
-            peerUUID: peer.uuid
+            peerID: livePeer.id,
+            peerUUID: livePeer.uuid
         )
         modelContext.insert(message)
         inputText = ""
