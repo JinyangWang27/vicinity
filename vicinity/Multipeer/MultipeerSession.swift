@@ -118,6 +118,9 @@ final class MultipeerSession: NSObject, ObservableObject {
     /// Restarts the MC stack with a new display name (called after onboarding or Settings change).
     /// Must be called on the main thread (all SwiftUI action callsites satisfy this).
     func updateDisplayName(_ name: String) {
+        advertiser.delegate = nil
+        browser.delegate = nil
+        session.delegate = nil
         advertiser.stopAdvertisingPeer()
         browser.stopBrowsingForPeers()
         session.disconnect()
