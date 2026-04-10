@@ -125,8 +125,9 @@ final class MultipeerSession: NSObject, ObservableObject {
         browser.stopBrowsingForPeers()
         session.disconnect()
 
-        // Clear peers synchronously before restarting to avoid stale entries.
+        // Clear peers and in-memory messages synchronously before restarting.
         peers = []
+        receivedMessages = [:]
 
         myPeerID = MCPeerID(displayName: name)
         session = MCSession(peer: myPeerID, securityIdentity: nil, encryptionPreference: .required)
