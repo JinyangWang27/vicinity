@@ -121,22 +121,58 @@ struct ChatView: View {
     // MARK: - Input bar
 
     private var inputBar: some View {
-        HStack(spacing: 8) {
-            TextField("Message", text: $inputText, axis: .vertical)
-                .textFieldStyle(.roundedBorder)
-                .lineLimit(1...5)
-                .submitLabel(.send)
-                .onSubmit(sendMessage)
-
-            Button(action: sendMessage) {
-                Image(systemName: "arrow.up.circle.fill")
-                    .font(.system(size: 30))
-                    .foregroundStyle(canSend ? .blue : .gray)
+        VStack(spacing: 0) {
+            if livePeer?.isConnected != true {
+                connectionBanner
+                Divider()
             }
-            .disabled(!canSend)
+            HStack(spacing: 8) {
+                TextField("Message", text: $inputText, axis: .vertical)
+                    .textFieldStyle(.roundedBorder)
+                    .lineLimit(1...5)
+                    .submitLabel(.send)
+                    .onSubmit(sendMessage)
+
+                Button(action: sendMessage) {
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.system(size: 30))
+                        .foregroundStyle(canSend ? .blue : .gray)
+                }
+                .disabled(!canSend)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Color(.systemBackground))
         }
+    }
+
+    @ViewBuilder
+    private var connectionBanner: some View {
+        HStack(spacing: 6) {
+            if let livePeer {
+                if livePeer.state == .connecting {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    Text("Connecting\u{2026}")
+                } else {
+                    Image(systemName: "wifi.slash")
+                    Text("Not connected")
+                    Spacer()
+                    Button("Reconnect") {
+                        multipeerSession.connect(to: livePeer)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.mini)
+                }
+            } else {
+                Image(systemName: "wifi.slash")
+                Text("Not in range")
+            }
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
         .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.vertical, 6)
         .background(Color(.systemBackground))
     }
 
