@@ -118,12 +118,16 @@ final class MultipeerSession: NSObject, ObservableObject {
     /// Restarts the MC stack with a new display name (called after onboarding or Settings change).
     /// Must be called on the main thread (all SwiftUI action callsites satisfy this).
     func updateDisplayName(_ name: String) {
+        advertiser.delegate = nil
+        browser.delegate = nil
+        session.delegate = nil
         advertiser.stopAdvertisingPeer()
         browser.stopBrowsingForPeers()
         session.disconnect()
 
-        // Clear peers synchronously before restarting to avoid stale entries.
+        // Clear peers and in-memory messages synchronously before restarting.
         peers = []
+        receivedMessages = [:]
 
         myPeerID = MCPeerID(displayName: name)
         session = MCSession(peer: myPeerID, securityIdentity: nil, encryptionPreference: .required)
@@ -166,6 +170,9 @@ final class MultipeerSession: NSObject, ObservableObject {
             guard let self else { return }
             if let index = self.peers.firstIndex(where: { $0.peerID == peerID }) {
                 self.peers[index].state = state
+            } else if let index = self.peers.firstIndex(where: { $0.id == peerID.displayName }) {
+                // Fallback: MCPeerID instance changed (e.g. lostPeer firing for an old instance).
+                self.peers[index].state = state
             }
         }
     }
@@ -173,10 +180,27 @@ final class MultipeerSession: NSObject, ObservableObject {
     private func addPeerIfNeeded(_ peerID: MCPeerID, state: MCSessionState) {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
-            if !self.peers.contains(where: { $0.peerID == peerID }) {
-                let peer = Peer(id: peerID.displayName, peerID: peerID, state: state)
-                self.peers.append(peer)
+
+            // Primary: exact MCPeerID object already tracked — nothing to do.
+            if self.peers.contains(where: { $0.peerID == peerID }) { return }
+
+            // Secondary: same display name but a new MCPeerID instance (BLE rediscovery).
+            if let index = self.peers.firstIndex(where: { $0.id == peerID.displayName }) {
+                let existing = self.peers[index]
+                if existing.state == .notConnected {
+                    // Safe to update: no live session on this entry's MCPeerID.
+                    // Replace the struct (peerID is let) while preserving handshake data.
+                    var replacement = Peer(id: peerID.displayName, peerID: peerID, state: state)
+                    replacement.uuid = existing.uuid
+                    replacement.resolvedDisplayName = existing.resolvedDisplayName
+                    self.peers[index] = replacement
+                }
+                // .connecting or .connected: session is live on the old MCPeerID — leave it.
+                return
             }
+
+            // Genuinely new peer.
+            self.peers.append(Peer(id: peerID.displayName, peerID: peerID, state: state))
         }
     }
 

@@ -26,20 +26,38 @@ struct VicinitApp: App {
 
     init() {
         let schema = Schema([Message.self, KnownPeer.self, ScheduledMessage.self])
-        let container = try! ModelContainer(for: schema)
-        modelContainer = container
+        modelContainer = Self.makeModelContainer(schema: schema)
 
         let session = MultipeerSession()
         _multipeerSession = StateObject(wrappedValue: session)
 
         let sms = ScheduledMessageService(
-            modelContext: container.mainContext,
+            modelContext: modelContainer.mainContext,
             multipeerSession: session
         )
         _scheduledMessageService = StateObject(wrappedValue: sms)
 
         let pbs = ProximityBluetoothService(deviceUUID: session.myDeviceUUID)
         _proximityBluetoothService = StateObject(wrappedValue: pbs)
+    }
+
+    private static func makeModelContainer(schema: Schema) -> ModelContainer {
+        do {
+            return try ModelContainer(for: schema)
+        } catch {
+            // Schema changed without a migration plan, or the store is corrupted.
+            // Delete all three SQLite files and recreate from scratch — the app
+            // recovers rather than crashing in a boot loop on every launch.
+            print("[VicinitApp] ModelContainer failed (\(error)). Recreating store.")
+            let supportDir = FileManager.default
+                .urls(for: .applicationSupportDirectory, in: .userDomainMask)
+                .first!
+            for name in ["default.store", "default.store-shm", "default.store-wal"] {
+                try? FileManager.default.removeItem(at: supportDir.appendingPathComponent(name))
+            }
+            // If this also fails the device/environment is fundamentally broken.
+            return try! ModelContainer(for: schema)
+        }
     }
 
     var body: some Scene {

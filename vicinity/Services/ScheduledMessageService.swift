@@ -53,12 +53,19 @@ final class ScheduledMessageService: ObservableObject {
         )) ?? []
         guard !messages.isEmpty else { return }
 
+        // Mark as sent and persist BEFORE transmitting. If the connection drops and
+        // reconnects, a second handshake fires on the main thread — because this runs
+        // serially, the save ensures the fetch above finds no pending messages the
+        // second time, preventing duplicate delivery.
         for scheduled in messages {
-            multipeerSession?.send(text: scheduled.text, toPeerDisplayName: peerIDString)
             scheduled.status = .sent
             scheduled.sentAt = Date()
         }
         try? modelContext.save()
+
+        for scheduled in messages {
+            multipeerSession?.send(text: scheduled.text, toPeerDisplayName: peerIDString)
+        }
         fireNotification(text: messages.map(\.text).joined(separator: ", "), toDisplayName: displayName)
     }
 
