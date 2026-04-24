@@ -10,7 +10,9 @@ final class MultipeerSession: NSObject, ObservableObject {
     // MARK: - Published state
 
     @Published var peers: [Peer] = []
-    @Published var receivedMessages: [String: [ReceivedMessage]] = [:]  // peerID → messages
+    @Published var receivedMessages: [String: [ReceivedMessage]] = [:]
+    /// False when the advertiser or browser has failed and not yet recovered.
+    @Published var isDiscoverable: Bool = true
 
     // MARK: - MC infrastructure
 
@@ -33,22 +35,29 @@ final class MultipeerSession: NSObject, ObservableObject {
     /// Expose device UUID so views and utilities can read it without exposing the setter.
     var myDeviceUUID: String { deviceUUID }
 
-    // MARK: - Callbacks
+    // MARK: - Combine publishers
 
-    /// Called when a regular chat message arrives (text, senderName, peerID).
-    var onMessageReceived: ((String, String, String) -> Void)?
+    /// Emits (text, senderName, peerID) for every received chat message.
+    let messagePublisher = PassthroughSubject<(text: String, senderName: String, peerID: String), Never>()
 
-    /// Called when a handshake arrives from a newly connected peer (peerID, uuid, displayName).
-    var onHandshakeReceived: ((String, String, String) -> Void)?
-
-    /// Combine publisher for handshake events — allows multiple subscribers (services + views).
+    /// Emits (peerID, uuid, displayName) when a handshake arrives from a newly connected peer.
     let handshakePublisher = PassthroughSubject<(peerID: String, uuid: String, displayName: String), Never>()
 
     // MARK: - Pending invitation
 
-    /// Display name of a peer who is requesting a connection (shown in confirmation alert).
     @Published var pendingInvitationPeerName: String?
     private var pendingInvitationHandler: ((Bool, MCSession?) -> Void)?
+    private var pendingInvitationTimeoutWork: DispatchWorkItem?
+
+    // MARK: - Retry / reconnect tracking
+
+    private var advertiserRetryDelay: TimeInterval = 2
+    private var browserRetryDelay: TimeInterval = 2
+    /// Previous MCSession state per peer (keyed by display name) — used to detect drop-from-connected.
+    private var peerPreviousState: [String: MCSessionState] = [:]
+    /// Auto-reconnect attempt count per peer (keyed by display name). Reset on successful connect.
+    private var autoReconnectAttempts: [String: Int] = [:]
+    private var heartbeatTimer: Timer?
 
     // MARK: - Init
 
@@ -82,6 +91,7 @@ final class MultipeerSession: NSObject, ObservableObject {
 
         startAdvertising()
         startBrowsing()
+        startHeartbeat()
     }
 
     // MARK: - Public API
@@ -92,13 +102,17 @@ final class MultipeerSession: NSObject, ObservableObject {
         browser.invitePeer(peer.peerID, to: session, withContext: nil, timeout: 30)
     }
 
-    func send(text: String, to peer: Peer) {
+    /// Sends a chat message to a peer. Returns true if the framework accepted the send.
+    @discardableResult
+    func send(text: String, to peer: Peer) -> Bool {
         guard peer.isConnected,
-              let data = text.data(using: .utf8) else { return }
+              let data = text.data(using: .utf8) else { return false }
         do {
             try session.send(data, toPeers: [peer.peerID], with: .reliable)
+            return true
         } catch {
             print("[MultipeerSession] Failed to send message: \(error)")
+            return false
         }
     }
 
@@ -108,6 +122,8 @@ final class MultipeerSession: NSObject, ObservableObject {
 
     /// Accepts or rejects a pending connection invitation from a nearby peer.
     func respondToInvitation(_ accept: Bool) {
+        pendingInvitationTimeoutWork?.cancel()
+        pendingInvitationTimeoutWork = nil
         pendingInvitationHandler?(accept, accept ? session : nil)
         pendingInvitationHandler = nil
         DispatchQueue.main.async { [weak self] in
@@ -118,6 +134,7 @@ final class MultipeerSession: NSObject, ObservableObject {
     /// Restarts the MC stack with a new display name (called after onboarding or Settings change).
     /// Must be called on the main thread (all SwiftUI action callsites satisfy this).
     func updateDisplayName(_ name: String) {
+        stopHeartbeat()
         advertiser.delegate = nil
         browser.delegate = nil
         session.delegate = nil
@@ -125,9 +142,10 @@ final class MultipeerSession: NSObject, ObservableObject {
         browser.stopBrowsingForPeers()
         session.disconnect()
 
-        // Clear peers and in-memory messages synchronously before restarting.
         peers = []
         receivedMessages = [:]
+        peerPreviousState = [:]
+        autoReconnectAttempts = [:]
 
         myPeerID = MCPeerID(displayName: name)
         session = MCSession(peer: myPeerID, securityIdentity: nil, encryptionPreference: .required)
@@ -139,27 +157,97 @@ final class MultipeerSession: NSObject, ObservableObject {
         browser = MCNearbyServiceBrowser(peer: myPeerID, serviceType: serviceType)
         browser.delegate = self
 
+        advertiserRetryDelay = 2
+        browserRetryDelay = 2
+
         startAdvertising()
         startBrowsing()
+        startHeartbeat()
     }
 
     /// Sends a message to a peer identified by display name (MCPeerID.displayName).
     /// Used by ScheduledMessageService which may not hold a Peer struct reference.
-    func send(text: String, toPeerDisplayName displayName: String) {
+    @discardableResult
+    func send(text: String, toPeerDisplayName displayName: String) -> Bool {
         guard let peer = peers.first(where: { $0.id == displayName }),
-              peer.isConnected else { return }
-        send(text: text, to: peer)
+              peer.isConnected else { return false }
+        return send(text: text, to: peer)
     }
 
-    // MARK: - Private helpers
+    // MARK: - Private: start/stop
 
     private func startAdvertising() {
+        isDiscoverable = true
         advertiser.startAdvertisingPeer()
     }
 
     private func startBrowsing() {
         browser.startBrowsingForPeers()
     }
+
+    // MARK: - Private: advertiser/browser retry with exponential backoff
+
+    private func scheduleAdvertiserRestart() {
+        let delay = advertiserRetryDelay
+        advertiserRetryDelay = min(advertiserRetryDelay * 2, 30)
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            self?.startAdvertising()
+        }
+    }
+
+    private func scheduleBrowserRestart() {
+        let delay = browserRetryDelay
+        browserRetryDelay = min(browserRetryDelay * 2, 30)
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            self?.startBrowsing()
+        }
+    }
+
+    // MARK: - Private: auto-reconnect (max 3 attempts per peer)
+
+    private func scheduleAutoReconnect(for peer: Peer) {
+        let attempts = autoReconnectAttempts[peer.id, default: 0]
+        guard attempts < 3 else { return }
+        autoReconnectAttempts[peer.id] = attempts + 1
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+            guard let self,
+                  let current = self.peers.first(where: { $0.id == peer.id }),
+                  current.state == .notConnected else { return }
+            self.connect(to: current)
+        }
+    }
+
+    // MARK: - Private: heartbeat / keepalive
+
+    private func startHeartbeat() {
+        heartbeatTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+            self?.sendHeartbeat()
+        }
+    }
+
+    private func stopHeartbeat() {
+        heartbeatTimer?.invalidate()
+        heartbeatTimer = nil
+    }
+
+    private func sendHeartbeat() {
+        let connectedPeerIDs = session.connectedPeers
+        guard !connectedPeerIDs.isEmpty,
+              let data = try? JSONEncoder().encode(["type": "ping"]) else { return }
+        for peerID in connectedPeerIDs {
+            do {
+                try session.send(data, toPeers: [peerID], with: .reliable)
+            } catch {
+                // Stale connection — update state and trigger auto-reconnect.
+                if let peer = peers.first(where: { $0.peerID == peerID }) {
+                    updatePeer(peerID, state: .notConnected)
+                    scheduleAutoReconnect(for: peer)
+                }
+            }
+        }
+    }
+
+    // MARK: - Private: peer state helpers
 
     private func peer(for peerID: MCPeerID) -> Peer? {
         peers.first { $0.peerID == peerID }
@@ -188,14 +276,22 @@ final class MultipeerSession: NSObject, ObservableObject {
             if let index = self.peers.firstIndex(where: { $0.id == peerID.displayName }) {
                 let existing = self.peers[index]
                 if existing.state == .notConnected {
-                    // Safe to update: no live session on this entry's MCPeerID.
-                    // Replace the struct (peerID is let) while preserving handshake data.
+                    // Safe to replace: no live session on the old MCPeerID.
                     var replacement = Peer(id: peerID.displayName, peerID: peerID, state: state)
                     replacement.uuid = existing.uuid
                     replacement.resolvedDisplayName = existing.resolvedDisplayName
                     self.peers[index] = replacement
+                } else if existing.state == .connecting {
+                    // BLE produced a new MCPeerID while an invite is in-flight on the old one.
+                    // Cancel the stale invite and swap in the fresh MCPeerID so the next
+                    // connect() uses the right object.
+                    self.session.cancelConnectPeer(existing.peerID)
+                    var replacement = Peer(id: peerID.displayName, peerID: peerID, state: .notConnected)
+                    replacement.uuid = existing.uuid
+                    replacement.resolvedDisplayName = existing.resolvedDisplayName
+                    self.peers[index] = replacement
                 }
-                // .connecting or .connected: session is live on the old MCPeerID — leave it.
+                // .connected: session is live on the old MCPeerID — leave it.
                 return
             }
 
@@ -243,9 +339,21 @@ extension MultipeerSession: MCSessionDelegate {
     func session(_ session: MCSession,
                  peer peerID: MCPeerID,
                  didChange state: MCSessionState) {
+        let previousState = peerPreviousState[peerID.displayName]
+        peerPreviousState[peerID.displayName] = state
+
         updatePeer(peerID, state: state)
+
         if state == .connected {
+            autoReconnectAttempts[peerID.displayName] = 0
             sendHandshake(to: peerID)
+        } else if state == .notConnected, previousState == .connected {
+            // Peer dropped from an established connection — schedule auto-reconnect.
+            DispatchQueue.main.async { [weak self] in
+                guard let self,
+                      let peer = self.peers.first(where: { $0.id == peerID.displayName }) else { return }
+                self.scheduleAutoReconnect(for: peer)
+            }
         }
     }
 
@@ -253,18 +361,21 @@ extension MultipeerSession: MCSessionDelegate {
                  didReceive data: Data,
                  fromPeer peerID: MCPeerID) {
 
-        // Intercept handshake messages before treating data as chat.
-        if let map = try? JSONDecoder().decode([String: String].self, from: data),
-           map["type"] == "handshake",
-           let uuid = map["uuid"],
-           let name = map["displayName"] {
-            DispatchQueue.main.async { [weak self] in
-                guard let self else { return }
-                self.updatePeerUUID(peerID, uuid: uuid, resolvedDisplayName: name)
-                self.onHandshakeReceived?(peerID.displayName, uuid, name)
-                self.handshakePublisher.send((peerID: peerID.displayName, uuid: uuid, displayName: name))
+        if let map = try? JSONDecoder().decode([String: String].self, from: data) {
+            // Silently discard heartbeat pings.
+            if map["type"] == "ping" { return }
+
+            // Intercept handshake messages before treating data as chat.
+            if map["type"] == "handshake",
+               let uuid = map["uuid"],
+               let name = map["displayName"] {
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else { return }
+                    self.updatePeerUUID(peerID, uuid: uuid, resolvedDisplayName: name)
+                    self.handshakePublisher.send((peerID: peerID.displayName, uuid: uuid, displayName: name))
+                }
+                return
             }
-            return
         }
 
         guard let text = String(data: data, encoding: .utf8) else { return }
@@ -275,7 +386,7 @@ extension MultipeerSession: MCSessionDelegate {
             guard let self else { return }
             let msg = ReceivedMessage(text: text, senderName: senderName)
             self.receivedMessages[peerIDString, default: []].append(msg)
-            self.onMessageReceived?(text, senderName, peerIDString)
+            self.messagePublisher.send((text: text, senderName: senderName, peerID: peerIDString))
         }
     }
 
@@ -310,18 +421,27 @@ extension MultipeerSession: MCNearbyServiceAdvertiserDelegate {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             self.pendingInvitationPeerName = peerID.displayName
-            self.pendingInvitationHandler = { [weak self, peerID] accept, session in
+            self.pendingInvitationHandler = { [weak self] accept, session in
                 invitationHandler(accept, session)
                 if accept {
                     self?.addPeerIfNeeded(peerID, state: .connecting)
                 }
             }
+
+            // Auto-decline if the user doesn't respond within 30 seconds.
+            let work = DispatchWorkItem { [weak self] in
+                self?.respondToInvitation(false)
+            }
+            self.pendingInvitationTimeoutWork = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 30, execute: work)
         }
     }
 
     func advertiser(_ advertiser: MCNearbyServiceAdvertiser,
                     didNotStartAdvertisingPeer error: Error) {
         print("[MultipeerSession] Advertising error: \(error)")
+        DispatchQueue.main.async { self.isDiscoverable = false }
+        scheduleAdvertiserRestart()
     }
 }
 
@@ -344,6 +464,8 @@ extension MultipeerSession: MCNearbyServiceBrowserDelegate {
     func browser(_ browser: MCNearbyServiceBrowser,
                  didNotStartBrowsingForPeers error: Error) {
         print("[MultipeerSession] Browsing error: \(error)")
+        DispatchQueue.main.async { self.isDiscoverable = false }
+        scheduleBrowserRestart()
     }
 }
 

@@ -39,6 +39,11 @@ struct ContentView: View {
                     }
                 }
             }
+            .safeAreaInset(edge: .top) {
+                if !multipeerSession.isDiscoverable {
+                    discoverabilityWarning
+                }
+            }
             .sheet(isPresented: $showSettings) {
                 SettingsView()
             }
@@ -64,37 +69,33 @@ struct ContentView: View {
                 }
             }
             .onAppear {
-                setupCallbacks()
+                syncProximityScanTargets()
+            }
+            // Persist incoming chat messages from any peer at the root level so messages
+            // are saved regardless of which chat (if any) is open.
+            .onReceive(multipeerSession.messagePublisher) { text, senderName, peerIDString in
+                let uuid = multipeerSession.peers.first { $0.id == peerIDString }?.uuid
+                let message = Message(
+                    text: text,
+                    senderName: senderName,
+                    isOutgoing: false,
+                    peerID: peerIDString,
+                    peerUUID: uuid
+                )
+                modelContext.insert(message)
+                try? modelContext.save()
+            }
+            // Upsert KnownPeer and retroactively tag unlinked messages when a handshake arrives.
+            // ScheduledMessageService delivery is handled via its own Combine subscription.
+            .onReceive(multipeerSession.handshakePublisher) { peerID, uuid, displayName in
+                upsertKnownPeer(uuid: uuid, displayName: displayName)
+                retrotagMessages(peerID: peerID, uuid: uuid)
+                try? modelContext.save()
             }
         }
     }
 
-    // MARK: - Multipeer callbacks
-
-    private func setupCallbacks() {
-        // Persist incoming chat messages from any peer at the root level
-        // so messages are saved regardless of which chat (if any) is open.
-        multipeerSession.onMessageReceived = { text, senderName, peerIDString in
-            let uuid = multipeerSession.peers.first { $0.id == peerIDString }?.uuid
-            let message = Message(
-                text: text,
-                senderName: senderName,
-                isOutgoing: false,
-                peerID: peerIDString,
-                peerUUID: uuid
-            )
-            modelContext.insert(message)
-        }
-
-        // Upsert KnownPeer and retroactively tag unlinked messages when a handshake arrives.
-        // ScheduledMessageService delivery is handled via its own Combine subscription.
-        multipeerSession.onHandshakeReceived = { peerID, uuid, displayName in
-            upsertKnownPeer(uuid: uuid, displayName: displayName)
-            retrotagMessages(peerID: peerID, uuid: uuid)
-        }
-
-        syncProximityScanTargets()
-    }
+    // MARK: - Proximity scan sync
 
     /// Syncs ProximityBluetoothService scan targets with currently pending scheduled messages.
     private func syncProximityScanTargets() {
@@ -129,6 +130,19 @@ struct ContentView: View {
     }
 
     // MARK: - Sub-views
+
+    private var discoverabilityWarning: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "exclamationmark.triangle")
+            Text("Discovery failed — retrying…")
+            Spacer()
+        }
+        .font(.caption)
+        .foregroundStyle(.white)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(Color.orange)
+    }
 
     private var emptyStateView: some View {
         VStack(spacing: 16) {

@@ -11,6 +11,7 @@ struct ChatView: View {
     @Query private var allMessages: [Message]
     @State private var inputText = ""
     @State private var showClearConfirmation = false
+    @State private var lastSendFailed = false
 
     /// Live peer entry from the session — reflects the current connection state and UUID
     /// even when those fields have changed since this view was pushed.
@@ -126,6 +127,10 @@ struct ChatView: View {
                 connectionBanner
                 Divider()
             }
+            if lastSendFailed {
+                sendFailureBanner
+                Divider()
+            }
             HStack(spacing: 8) {
                 TextField("Message", text: $inputText, axis: .vertical)
                     .textFieldStyle(.roundedBorder)
@@ -144,6 +149,19 @@ struct ChatView: View {
             .padding(.vertical, 8)
             .background(Color(.systemBackground))
         }
+    }
+
+    private var sendFailureBanner: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "exclamationmark.circle")
+            Text("Message failed to send")
+            Spacer()
+        }
+        .font(.caption)
+        .foregroundStyle(.white)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(Color.red.opacity(0.85))
     }
 
     @ViewBuilder
@@ -185,17 +203,21 @@ struct ChatView: View {
         guard canSend, let livePeer else { return }
         let trimmed = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        multipeerSession.send(text: trimmed, to: livePeer)
+        let sent = multipeerSession.send(text: trimmed, to: livePeer)
+        lastSendFailed = !sent
 
-        let message = Message(
-            text: trimmed,
-            senderName: multipeerSession.myDisplayName,
-            isOutgoing: true,
-            peerID: livePeer.id,
-            peerUUID: livePeer.uuid
-        )
-        modelContext.insert(message)
-        inputText = ""
+        if sent {
+            let message = Message(
+                text: trimmed,
+                senderName: multipeerSession.myDisplayName,
+                isOutgoing: true,
+                peerID: livePeer.id,
+                peerUUID: livePeer.uuid
+            )
+            modelContext.insert(message)
+            try? modelContext.save()
+            inputText = ""
+        }
     }
 }
 
