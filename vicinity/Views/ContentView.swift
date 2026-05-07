@@ -85,7 +85,7 @@ struct ContentView: View {
             // Persist incoming chat messages from any peer at the root level so messages
             // are saved regardless of which chat (if any) is open.
             .onReceive(multipeerSession.messagePublisher) { text, senderName, peerIDString in
-                let uuid = multipeerSession.peers.first { $0.id == peerIDString }?.uuid
+                let uuid = multipeerSession.peers.first { $0.displayName == peerIDString }?.uuid
                 let message = Message(
                     text: text,
                     senderName: senderName,
@@ -229,7 +229,7 @@ private struct PeerRow: View {
                 .fill(statusColor)
                 .frame(width: 10, height: 10)
             VStack(alignment: .leading, spacing: 2) {
-                Text(peer.id)
+                Text(peer.resolvedDisplayName ?? peer.displayName)
                     .font(.body)
                 Text(peer.statusLabel)
                     .font(.caption)

@@ -53,10 +53,12 @@ final class MultipeerSession: NSObject, ObservableObject {
 
     private var advertiserRetryDelay: TimeInterval = 2
     private var browserRetryDelay: TimeInterval = 2
-    /// Previous MCSession state per peer (keyed by display name) — used to detect drop-from-connected.
-    private var peerPreviousState: [String: MCSessionState] = [:]
-    /// Auto-reconnect attempt count per peer (keyed by display name). Reset on successful connect.
-    private var autoReconnectAttempts: [String: Int] = [:]
+    /// Previous MCSession state per peer — used to detect drop-from-connected.
+    /// Keyed by MCPeerID rather than display name so two devices sharing a name don't
+    /// corrupt each other's state tracking.
+    private var peerPreviousState: [MCPeerID: MCSessionState] = [:]
+    /// Auto-reconnect attempt count per peer. Reset on successful connect.
+    private var autoReconnectAttempts: [MCPeerID: Int] = [:]
     private var heartbeatTimer: Timer?
 
     // MARK: - Init
@@ -169,7 +171,7 @@ final class MultipeerSession: NSObject, ObservableObject {
     /// Used by ScheduledMessageService which may not hold a Peer struct reference.
     @discardableResult
     func send(text: String, toPeerDisplayName displayName: String) -> Bool {
-        guard let peer = peers.first(where: { $0.id == displayName }),
+        guard let peer = peers.first(where: { $0.displayName == displayName }),
               peer.isConnected else { return false }
         return send(text: text, to: peer)
     }
@@ -206,12 +208,13 @@ final class MultipeerSession: NSObject, ObservableObject {
     // MARK: - Private: auto-reconnect (max 3 attempts per peer)
 
     private func scheduleAutoReconnect(for peer: Peer) {
-        let attempts = autoReconnectAttempts[peer.id, default: 0]
+        let key = peer.peerID
+        let attempts = autoReconnectAttempts[key, default: 0]
         guard attempts < 3 else { return }
-        autoReconnectAttempts[peer.id] = attempts + 1
+        autoReconnectAttempts[key] = attempts + 1
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
             guard let self,
-                  let current = self.peers.first(where: { $0.id == peer.id }),
+                  let current = self.peers.first(where: { $0.peerID == peer.peerID }),
                   current.state == .notConnected else { return }
             self.connect(to: current)
         }
@@ -258,7 +261,7 @@ final class MultipeerSession: NSObject, ObservableObject {
             guard let self else { return }
             if let index = self.peers.firstIndex(where: { $0.peerID == peerID }) {
                 self.peers[index].state = state
-            } else if let index = self.peers.firstIndex(where: { $0.id == peerID.displayName }) {
+            } else if let index = self.peers.firstIndex(where: { $0.displayName == peerID.displayName }) {
                 // Fallback: MCPeerID instance changed (e.g. lostPeer firing for an old instance).
                 self.peers[index].state = state
             }
@@ -273,30 +276,44 @@ final class MultipeerSession: NSObject, ObservableObject {
             if self.peers.contains(where: { $0.peerID == peerID }) { return }
 
             // Secondary: same display name but a new MCPeerID instance (BLE rediscovery).
-            if let index = self.peers.firstIndex(where: { $0.id == peerID.displayName }) {
+            if let index = self.peers.firstIndex(where: { $0.displayName == peerID.displayName }) {
                 let existing = self.peers[index]
                 if existing.state == .notConnected {
                     // Safe to replace: no live session on the old MCPeerID.
-                    var replacement = Peer(id: peerID.displayName, peerID: peerID, state: state)
+                    var replacement = Peer(peerID: peerID, state: state)
                     replacement.uuid = existing.uuid
                     replacement.resolvedDisplayName = existing.resolvedDisplayName
                     self.peers[index] = replacement
+                    self.migratePeerKey(from: existing.peerID, to: peerID)
                 } else if existing.state == .connecting {
                     // BLE produced a new MCPeerID while an invite is in-flight on the old one.
                     // Cancel the stale invite and swap in the fresh MCPeerID so the next
                     // connect() uses the right object.
                     self.session.cancelConnectPeer(existing.peerID)
-                    var replacement = Peer(id: peerID.displayName, peerID: peerID, state: .notConnected)
+                    var replacement = Peer(peerID: peerID, state: .notConnected)
                     replacement.uuid = existing.uuid
                     replacement.resolvedDisplayName = existing.resolvedDisplayName
                     self.peers[index] = replacement
+                    self.migratePeerKey(from: existing.peerID, to: peerID)
                 }
                 // .connected: session is live on the old MCPeerID — leave it.
                 return
             }
 
             // Genuinely new peer.
-            self.peers.append(Peer(id: peerID.displayName, peerID: peerID, state: state))
+            self.peers.append(Peer(peerID: peerID, state: state))
+        }
+    }
+
+    /// When BLE rediscovery replaces an MCPeerID instance for the same display name,
+    /// move our state-tracking entries onto the new key so reconnect counters and
+    /// previous-state history don't leak.
+    private func migratePeerKey(from old: MCPeerID, to new: MCPeerID) {
+        if let value = peerPreviousState.removeValue(forKey: old) {
+            peerPreviousState[new] = value
+        }
+        if let value = autoReconnectAttempts.removeValue(forKey: old) {
+            autoReconnectAttempts[new] = value
         }
     }
 
@@ -339,19 +356,19 @@ extension MultipeerSession: MCSessionDelegate {
     func session(_ session: MCSession,
                  peer peerID: MCPeerID,
                  didChange state: MCSessionState) {
-        let previousState = peerPreviousState[peerID.displayName]
-        peerPreviousState[peerID.displayName] = state
+        let previousState = peerPreviousState[peerID]
+        peerPreviousState[peerID] = state
 
         updatePeer(peerID, state: state)
 
         if state == .connected {
-            autoReconnectAttempts[peerID.displayName] = 0
+            autoReconnectAttempts[peerID] = 0
             sendHandshake(to: peerID)
         } else if state == .notConnected, previousState == .connected {
             // Peer dropped from an established connection — schedule auto-reconnect.
             DispatchQueue.main.async { [weak self] in
                 guard let self,
-                      let peer = self.peers.first(where: { $0.id == peerID.displayName }) else { return }
+                      let peer = self.peers.first(where: { $0.peerID == peerID }) else { return }
                 self.scheduleAutoReconnect(for: peer)
             }
         }

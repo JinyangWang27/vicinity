@@ -14,21 +14,25 @@ struct ChatView: View {
     @State private var lastSendFailed = false
 
     /// Live peer entry from the session — reflects the current connection state and UUID
-    /// even when those fields have changed since this view was pushed.
+    /// even when those fields have changed since this view was pushed. Prefers the
+    /// MCPeerID instance (stable across handshake) and falls back to display-name match
+    /// in case the instance was replaced via BLE rediscovery.
     private var livePeer: Peer? {
-        multipeerSession.peers.first { $0.id == peer.id }
+        multipeerSession.peers.first { $0.peerID == peer.peerID }
+            ?? multipeerSession.peers.first { $0.displayName == peer.displayName }
     }
 
     /// Messages filtered to this peer's conversation, sorted by time.
     /// Prefers the live UUID (updated after handshake) over the snapshot value so the
     /// correct filter is applied as soon as the UUID becomes known mid-session.
-    /// Falls back to peerID (display name) for pre-handshake and pre-v1.1 messages.
+    /// Falls back to display-name `peerID` for pre-handshake and pre-v1.1 messages.
     private var messages: [Message] {
         let filtered: [Message]
         if let uuid = livePeer?.uuid ?? peer.uuid {
             filtered = allMessages.filter { $0.peerUUID == uuid }
         } else {
-            filtered = allMessages.filter { $0.peerID == peer.id }
+            let displayName = peer.displayName
+            filtered = allMessages.filter { $0.peerID == displayName }
         }
         return filtered.sorted { $0.timestamp < $1.timestamp }
     }
@@ -39,14 +43,14 @@ struct ChatView: View {
             Divider()
             inputBar
         }
-        .navigationTitle(peer.id)
+        .navigationTitle(peer.resolvedDisplayName ?? peer.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 NavigationLink(
                     destination: ScheduledMessagesView(
                         peerUUID: peer.uuid ?? "",
-                        peerDisplayName: peer.resolvedDisplayName ?? peer.id
+                        peerDisplayName: peer.resolvedDisplayName ?? peer.displayName
                     )
                 ) {
                     Image(systemName: "clock.badge.plus")
@@ -77,7 +81,7 @@ struct ChatView: View {
                 }
             }
         } message: {
-            Text("All messages with \(peer.resolvedDisplayName ?? peer.id) will be permanently deleted from this device.")
+            Text("All messages with \(peer.resolvedDisplayName ?? peer.displayName) will be permanently deleted from this device.")
         }
     }
 
@@ -211,7 +215,7 @@ struct ChatView: View {
                 text: trimmed,
                 senderName: multipeerSession.myDisplayName,
                 isOutgoing: true,
-                peerID: livePeer.id,
+                peerID: livePeer.displayName,
                 peerUUID: livePeer.uuid
             )
             modelContext.insert(message)
