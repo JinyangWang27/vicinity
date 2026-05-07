@@ -14,6 +14,7 @@ struct ContentView: View {
     @State private var showKnownFriends = false
 
     @AppStorage("storeWasReset") private var storeWasReset = false
+    @AppStorage("storageUnavailable") private var storageUnavailable = false
 
     var body: some View {
         NavigationStack {
@@ -43,6 +44,9 @@ struct ContentView: View {
             }
             .safeAreaInset(edge: .top) {
                 VStack(spacing: 0) {
+                    if storageUnavailable {
+                        storageUnavailableWarning
+                    }
                     if storeWasReset {
                         storeResetWarning
                     }
@@ -137,6 +141,19 @@ struct ContentView: View {
     }
 
     // MARK: - Sub-views
+
+    private var storageUnavailableWarning: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "externaldrive.badge.xmark")
+            Text("Storage is unavailable. Messages won't be saved this session.")
+                .font(.caption)
+            Spacer()
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color.red)
+    }
 
     private var storeResetWarning: some View {
         HStack(spacing: 8) {

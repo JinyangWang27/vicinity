@@ -59,15 +59,10 @@ struct VicinitApp: App {
     }
 
     private static func makeModelContainer() -> ModelContainer {
+        let schema = Schema(versionedSchema: SchemaV1.self)
         do {
-            return try ModelContainer(
-                for: Schema(versionedSchema: SchemaV1.self),
-                migrationPlan: VicinityMigrationPlan.self
-            )
+            return try ModelContainer(for: schema, migrationPlan: VicinityMigrationPlan.self)
         } catch {
-            // Migration failed or store is corrupt. Delete the SQLite files and recreate.
-            // Set a flag so ContentView can surface a one-time warning to the user about
-            // the lost history rather than silently wiping it.
             print("[VicinitApp] ModelContainer failed (\(error)). Recreating store.")
             UserDefaults.standard.set(true, forKey: "storeWasReset")
             let supportDir = FileManager.default
@@ -76,10 +71,19 @@ struct VicinitApp: App {
             for name in ["default.store", "default.store-shm", "default.store-wal"] {
                 try? FileManager.default.removeItem(at: supportDir.appendingPathComponent(name))
             }
-            return try! ModelContainer(
-                for: Schema(versionedSchema: SchemaV1.self),
-                migrationPlan: VicinityMigrationPlan.self
-            )
+            do {
+                return try ModelContainer(for: schema, migrationPlan: VicinityMigrationPlan.self)
+            } catch {
+                // Disk full / sandbox issue / fundamentally broken environment.
+                // Fall back to an in-memory container so the app still launches and the
+                // user can read the warning banner instead of crashing in a boot loop.
+                print("[VicinitApp] Recreate also failed (\(error)). Falling back to in-memory.")
+                UserDefaults.standard.set(true, forKey: "storageUnavailable")
+                return try! ModelContainer(
+                    for: schema,
+                    configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+                )
+            }
         }
     }
 
