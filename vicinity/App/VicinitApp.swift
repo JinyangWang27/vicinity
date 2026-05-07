@@ -13,6 +13,24 @@ enum AppColorScheme: String {
     }
 }
 
+/// First versioned schema. Declaring a `VersionedSchema` lets SwiftData use lightweight
+/// inferred migrations for additive changes (new optional fields, added unique constraints
+/// on fields whose data is already unique). Without this, any schema change would fall
+/// through to the destructive corruption path.
+enum SchemaV1: VersionedSchema {
+    static var versionIdentifier = Schema.Version(1, 0, 0)
+    static var models: [any PersistentModel.Type] = [
+        Message.self, KnownPeer.self, ScheduledMessage.self
+    ]
+}
+
+/// Migration plan placeholder. Future model changes that cannot be auto-migrated should
+/// add a SchemaV2 (etc.) here together with a `MigrationStage`.
+enum VicinityMigrationPlan: SchemaMigrationPlan {
+    static var schemas: [any VersionedSchema.Type] = [SchemaV1.self]
+    static var stages: [MigrationStage] = []
+}
+
 @main
 struct VicinitApp: App {
 
@@ -25,8 +43,7 @@ struct VicinitApp: App {
     @StateObject private var proximityBluetoothService: ProximityBluetoothService
 
     init() {
-        let schema = Schema([Message.self, KnownPeer.self, ScheduledMessage.self])
-        modelContainer = Self.makeModelContainer(schema: schema)
+        modelContainer = Self.makeModelContainer()
 
         let session = MultipeerSession()
         _multipeerSession = StateObject(wrappedValue: session)
@@ -41,22 +58,28 @@ struct VicinitApp: App {
         _proximityBluetoothService = StateObject(wrappedValue: pbs)
     }
 
-    private static func makeModelContainer(schema: Schema) -> ModelContainer {
+    private static func makeModelContainer() -> ModelContainer {
         do {
-            return try ModelContainer(for: schema)
+            return try ModelContainer(
+                for: Schema(versionedSchema: SchemaV1.self),
+                migrationPlan: VicinityMigrationPlan.self
+            )
         } catch {
-            // Schema changed without a migration plan, or the store is corrupted.
-            // Delete all three SQLite files and recreate from scratch — the app
-            // recovers rather than crashing in a boot loop on every launch.
+            // Migration failed or store is corrupt. Delete the SQLite files and recreate.
+            // Set a flag so ContentView can surface a one-time warning to the user about
+            // the lost history rather than silently wiping it.
             print("[VicinitApp] ModelContainer failed (\(error)). Recreating store.")
+            UserDefaults.standard.set(true, forKey: "storeWasReset")
             let supportDir = FileManager.default
                 .urls(for: .applicationSupportDirectory, in: .userDomainMask)
                 .first!
             for name in ["default.store", "default.store-shm", "default.store-wal"] {
                 try? FileManager.default.removeItem(at: supportDir.appendingPathComponent(name))
             }
-            // If this also fails the device/environment is fundamentally broken.
-            return try! ModelContainer(for: schema)
+            return try! ModelContainer(
+                for: Schema(versionedSchema: SchemaV1.self),
+                migrationPlan: VicinityMigrationPlan.self
+            )
         }
     }
 

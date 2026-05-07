@@ -13,6 +13,8 @@ struct ContentView: View {
     @State private var showSettings = false
     @State private var showKnownFriends = false
 
+    @AppStorage("storeWasReset") private var storeWasReset = false
+
     var body: some View {
         NavigationStack {
             Group {
@@ -40,8 +42,13 @@ struct ContentView: View {
                 }
             }
             .safeAreaInset(edge: .top) {
-                if !multipeerSession.isDiscoverable {
-                    discoverabilityWarning
+                VStack(spacing: 0) {
+                    if storeWasReset {
+                        storeResetWarning
+                    }
+                    if !multipeerSession.isDiscoverable {
+                        discoverabilityWarning
+                    }
                 }
             }
             .sheet(isPresented: $showSettings) {
@@ -130,6 +137,25 @@ struct ContentView: View {
     }
 
     // MARK: - Sub-views
+
+    private var storeResetWarning: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+            Text("Your message history was reset to recover from a storage error.")
+                .font(.caption)
+            Spacer()
+            Button {
+                storeWasReset = false
+            } label: {
+                Image(systemName: "xmark")
+            }
+            .buttonStyle(.plain)
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color.red.opacity(0.85))
+    }
 
     private var discoverabilityWarning: some View {
         HStack(spacing: 6) {
