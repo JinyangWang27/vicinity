@@ -3,7 +3,7 @@ import SwiftData
 
 @Model
 class Message {
-    var id: UUID
+    @Attribute(.unique) var id: UUID
     var text: String
     var senderName: String
     var isOutgoing: Bool

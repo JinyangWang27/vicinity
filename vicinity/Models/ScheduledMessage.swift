@@ -9,7 +9,7 @@ enum ScheduledMessageStatus: String, Codable {
 
 @Model
 class ScheduledMessage {
-    var id: UUID
+    @Attribute(.unique) var id: UUID
     var targetPeerUUID: String
     var text: String
     var createdAt: Date
