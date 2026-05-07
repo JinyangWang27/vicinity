@@ -8,8 +8,15 @@ class Message {
     var senderName: String
     var isOutgoing: Bool
     var timestamp: Date
-    var peerID: String   // MCPeerID.displayName (display-name fallback)
-    var peerUUID: String? // stable device UUID, set after handshake exchange
+    var peerID: String      // MCPeerID.displayName (display-name fallback)
+    var peerUUID: String?   // stable device UUID, set after handshake exchange
+    /// Sender-generated identifier used for receiver-side dedupe and ACK matching.
+    /// Optional so legacy rows survive migration; promoted to @Attribute(.unique)
+    /// in a later release once every row is backfilled.
+    var wireID: UUID?
+    /// Set on receipt of a delivery ACK from the peer. Lets ChatView render a
+    /// double-check indicator on outgoing messages once they're confirmed received.
+    var deliveredAt: Date?
 
     init(id: UUID = UUID(),
          text: String,
@@ -17,7 +24,9 @@ class Message {
          isOutgoing: Bool,
          timestamp: Date = Date(),
          peerID: String,
-         peerUUID: String? = nil) {
+         peerUUID: String? = nil,
+         wireID: UUID? = nil,
+         deliveredAt: Date? = nil) {
         self.id = id
         self.text = text
         self.senderName = senderName
@@ -25,5 +34,7 @@ class Message {
         self.timestamp = timestamp
         self.peerID = peerID
         self.peerUUID = peerUUID
+        self.wireID = wireID
+        self.deliveredAt = deliveredAt
     }
 }
