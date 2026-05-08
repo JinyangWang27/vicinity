@@ -43,6 +43,11 @@ struct ChatView: View {
             Divider()
             inputBar
         }
+        .onChange(of: livePeer?.isConnected) { _, connected in
+            // Clear the stale "send failed" banner once we're back online so the user
+            // isn't staring at a red bar after they reconnect.
+            if connected == true { lastSendFailed = false }
+        }
         .navigationTitle(peer.resolvedDisplayName ?? peer.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -250,13 +255,31 @@ private struct MessageBubble: View {
                     .foregroundStyle(message.isOutgoing ? .white : .primary)
                     .clipShape(RoundedRectangle(cornerRadius: 16))
 
-                Text(message.timestamp, style: .time)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 4)
+                HStack(spacing: 4) {
+                    Text(message.timestamp, style: .time)
+                    if message.isOutgoing { deliveryIndicator }
+                }
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 4)
             }
 
             if !message.isOutgoing { Spacer(minLength: 60) }
+        }
+    }
+
+    /// Outgoing-only indicator:
+    /// - double-check once the peer ACKs receipt (deliveredAt set)
+    /// - single-check otherwise (framework accepted but no ACK yet)
+    /// Pre-WireMessage messages (no wireID) keep the single-check forever.
+    @ViewBuilder
+    private var deliveryIndicator: some View {
+        if message.deliveredAt != nil {
+            Image(systemName: "checkmark.circle.fill")
+                .accessibilityLabel(String(localized: "Delivered"))
+        } else {
+            Image(systemName: "checkmark")
+                .accessibilityLabel(String(localized: "Sent"))
         }
     }
 }
