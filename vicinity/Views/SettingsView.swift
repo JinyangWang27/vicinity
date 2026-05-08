@@ -16,6 +16,7 @@ struct SettingsView: View {
     @State private var showShareSheet = false
     @State private var showExportPicker = false
     @State private var didCopyUUID = false
+    @State private var pendingDisplayName: String?
 
     var body: some View {
         NavigationStack {
@@ -89,12 +90,33 @@ struct SettingsView: View {
                     Button("Done") {
                         let trimmed = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
                         if !trimmed.isEmpty && trimmed != multipeerSession.myDisplayName {
-                            multipeerSession.updateDisplayName(trimmed)
-                            UserDefaults.standard.set(trimmed, forKey: "displayName")
+                            // Display-name change tears down and rebuilds the entire MC
+                            // stack — peers vanish for several seconds. Confirm first.
+                            pendingDisplayName = trimmed
+                        } else {
+                            dismiss()
                         }
-                        dismiss()
                     }
                 }
+            }
+            .confirmationDialog(
+                "Change your display name?",
+                isPresented: Binding(
+                    get: { pendingDisplayName != nil },
+                    set: { if !$0 { pendingDisplayName = nil } }
+                ),
+                titleVisibility: .visible,
+                presenting: pendingDisplayName
+            ) { trimmed in
+                Button("Change") {
+                    multipeerSession.updateDisplayName(trimmed)
+                    UserDefaults.standard.set(trimmed, forKey: "displayName")
+                    pendingDisplayName = nil
+                    dismiss()
+                }
+                Button("Cancel", role: .cancel) { pendingDisplayName = nil }
+            } message: { _ in
+                Text("Vicinity will reconnect to nearby people. This takes a few seconds.")
             }
             .sheet(isPresented: $showExportPicker) {
                 ExportPickerView(
