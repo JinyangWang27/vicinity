@@ -189,6 +189,7 @@ final class MultipeerSession: NSObject, ObservableObject {
 
     // MARK: - Private: advertiser/browser retry with exponential backoff
 
+    /// Must be called on the main queue. Mutates `advertiserRetryDelay`.
     private func scheduleAdvertiserRestart() {
         let delay = advertiserRetryDelay
         advertiserRetryDelay = min(advertiserRetryDelay * 2, 30)
@@ -197,6 +198,7 @@ final class MultipeerSession: NSObject, ObservableObject {
         }
     }
 
+    /// Must be called on the main queue. Mutates `browserRetryDelay`.
     private func scheduleBrowserRestart() {
         let delay = browserRetryDelay
         browserRetryDelay = min(browserRetryDelay * 2, 30)
@@ -356,20 +358,27 @@ extension MultipeerSession: MCSessionDelegate {
     func session(_ session: MCSession,
                  peer peerID: MCPeerID,
                  didChange state: MCSessionState) {
-        let previousState = peerPreviousState[peerID]
-        peerPreviousState[peerID] = state
-
-        updatePeer(peerID, state: state)
-
+        // Send the handshake on the MC delegate queue (MCSession.send is thread-safe and
+        // we want it dispatched as soon as the session reports .connected). Everything
+        // that touches our state-tracking dictionaries is dispatched to main below so
+        // those reads/writes are confined to a single queue.
         if state == .connected {
-            autoReconnectAttempts[peerID] = 0
             sendHandshake(to: peerID)
-        } else if state == .notConnected, previousState == .connected {
-            // Peer dropped from an established connection — schedule auto-reconnect.
-            DispatchQueue.main.async { [weak self] in
-                guard let self,
-                      let peer = self.peers.first(where: { $0.peerID == peerID }) else { return }
-                self.scheduleAutoReconnect(for: peer)
+        }
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            let previousState = self.peerPreviousState[peerID]
+            self.peerPreviousState[peerID] = state
+
+            self.updatePeer(peerID, state: state)
+
+            if state == .connected {
+                self.autoReconnectAttempts[peerID] = 0
+            } else if state == .notConnected, previousState == .connected {
+                if let peer = self.peers.first(where: { $0.peerID == peerID }) {
+                    self.scheduleAutoReconnect(for: peer)
+                }
             }
         }
     }
@@ -457,8 +466,10 @@ extension MultipeerSession: MCNearbyServiceAdvertiserDelegate {
     func advertiser(_ advertiser: MCNearbyServiceAdvertiser,
                     didNotStartAdvertisingPeer error: Error) {
         print("[MultipeerSession] Advertising error: \(error)")
-        DispatchQueue.main.async { self.isDiscoverable = false }
-        scheduleAdvertiserRestart()
+        DispatchQueue.main.async { [weak self] in
+            self?.isDiscoverable = false
+            self?.scheduleAdvertiserRestart()
+        }
     }
 }
 
@@ -481,8 +492,10 @@ extension MultipeerSession: MCNearbyServiceBrowserDelegate {
     func browser(_ browser: MCNearbyServiceBrowser,
                  didNotStartBrowsingForPeers error: Error) {
         print("[MultipeerSession] Browsing error: \(error)")
-        DispatchQueue.main.async { self.isDiscoverable = false }
-        scheduleBrowserRestart()
+        DispatchQueue.main.async { [weak self] in
+            self?.isDiscoverable = false
+            self?.scheduleBrowserRestart()
+        }
     }
 }
 
