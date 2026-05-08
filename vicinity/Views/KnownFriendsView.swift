@@ -70,9 +70,12 @@ private struct KnownFriendRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(known.displayName)
                     .font(.body)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
                 Text(lastSeenLabel)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
         }
         .padding(.vertical, 2)

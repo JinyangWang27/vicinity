@@ -331,9 +331,12 @@ private struct PeerRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(peer.resolvedDisplayName ?? peer.displayName)
                     .font(.body)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
                 Text(peer.statusLabel)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
             Spacer()
             Image(systemName: "chevron.right")
