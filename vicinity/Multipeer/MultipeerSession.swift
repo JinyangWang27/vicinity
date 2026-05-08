@@ -144,6 +144,19 @@ final class MultipeerSession: NSObject, ObservableObject {
         }
     }
 
+    /// Kick MultipeerConnectivity to re-invite a peer whose UUID was just observed via
+    /// the BLE proximity scan. Does nothing if we're already connected/connecting, or if
+    /// the peer hasn't been discovered by MC yet (foundPeer hasn't fired) — in that
+    /// case MC's own browser will pick them up moments later.
+    func kickReconnect(forUUID uuid: String) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            guard let peer = self.peers.first(where: { $0.uuid == uuid }),
+                  peer.state == .notConnected else { return }
+            self.connect(to: peer)
+        }
+    }
+
     /// Restarts the MC stack with a new display name (called after onboarding or Settings change).
     /// Must be called on the main thread (all SwiftUI action callsites satisfy this).
     func updateDisplayName(_ name: String) {

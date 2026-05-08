@@ -49,6 +49,11 @@ struct VicinitApp: App {
         _multipeerSession = StateObject(wrappedValue: session)
 
         let pbs = ProximityBluetoothService(deviceUUID: session.myDeviceUUID)
+        // BLE detection of a target peer kicks MultipeerConnectivity to re-invite that
+        // peer immediately rather than waiting for MC's own browser to pick them up.
+        pbs.onPeerDetected = { [weak session] uuid in
+            session?.kickReconnect(forUUID: uuid)
+        }
         _proximityBluetoothService = StateObject(wrappedValue: pbs)
 
         let sms = ScheduledMessageService(
