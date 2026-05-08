@@ -111,7 +111,10 @@ struct SettingsView: View {
                     showShareSheet = url != nil
                 }
             }
-            .sheet(isPresented: $showShareSheet) {
+            .sheet(isPresented: $showShareSheet, onDismiss: {
+                if let url = exportURL { ExportManager.cleanup(url) }
+                exportURL = nil
+            }) {
                 if let url = exportURL {
                     ShareSheet(items: [url])
                 }

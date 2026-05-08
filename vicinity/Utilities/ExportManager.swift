@@ -19,6 +19,9 @@ struct ExportManager {
     }
 
     /// Builds a temporary JSON file and returns its URL, or nil on failure.
+    /// The file is written into a unique per-export subdirectory of the temp directory
+    /// so callers can clean up the whole subdirectory once the share sheet dismisses
+    /// without accidentally deleting unrelated temp files.
     static func exportJSON(peerName: String,
                            peerUUID: String?,
                            deviceUUID: String,
@@ -47,15 +50,27 @@ struct ExportManager {
 
         guard let data = try? encoder.encode(payload) else { return nil }
 
-        let tempURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("vicinity-\(peerName)-\(Date().timeIntervalSince1970).json")
+        let subdir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("exports", isDirectory: true)
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+
+        let safePeerName = peerName.replacingOccurrences(of: "/", with: "_")
+        let fileURL = subdir.appendingPathComponent("vicinity-\(safePeerName).json")
 
         do {
-            try data.write(to: tempURL, options: .atomic)
-            return tempURL
+            try FileManager.default.createDirectory(at: subdir, withIntermediateDirectories: true)
+            try data.write(to: fileURL, options: .atomic)
+            return fileURL
         } catch {
             print("[ExportManager] Failed to write export file: \(error)")
             return nil
         }
+    }
+
+    /// Best-effort cleanup of an export file's enclosing subdirectory. Call after the
+    /// share sheet dismisses so the plaintext payload doesn't sit in /tmp until the
+    /// OS reaps it.
+    static func cleanup(_ url: URL) {
+        try? FileManager.default.removeItem(at: url.deletingLastPathComponent())
     }
 }
