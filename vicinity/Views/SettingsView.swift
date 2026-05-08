@@ -5,7 +5,8 @@ import SwiftData
 struct SettingsView: View {
     @EnvironmentObject private var multipeerSession: MultipeerSession
     @Environment(\.dismiss) private var dismiss
-    @Query private var allMessages: [Message]
+    @Environment(\.modelContext) private var modelContext
+    @Query(sort: \KnownPeer.lastSeen, order: .reverse) private var knownPeers: [KnownPeer]
 
     @AppStorage("appColorScheme") private var appColorScheme: AppColorScheme = .system
 
@@ -59,7 +60,7 @@ struct SettingsView: View {
                     Button("Export Conversation as JSON") {
                         showExportPicker = true
                     }
-                    .disabled(allMessages.isEmpty)
+                    .disabled(knownPeers.isEmpty)
                     Text("Share a full conversation log as a JSON file. Your Device ID is included so your identity can be restored.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -94,8 +95,16 @@ struct SettingsView: View {
             }
             .sheet(isPresented: $showExportPicker) {
                 ExportPickerView(
-                    allMessages: allMessages,
-                    deviceUUID: multipeerSession.myDeviceUUID
+                    knownPeers: knownPeers,
+                    deviceUUID: multipeerSession.myDeviceUUID,
+                    fetchMessages: { uuid in
+                        (try? modelContext.fetch(
+                            FetchDescriptor<Message>(
+                                predicate: #Predicate { $0.peerUUID == uuid },
+                                sortBy: [SortDescriptor(\.timestamp)]
+                            )
+                        )) ?? []
+                    }
                 ) { url in
                     exportURL = url
                     showExportPicker = false
@@ -117,27 +126,23 @@ struct SettingsView: View {
 
 // MARK: - ExportPickerView
 
-/// Lets users pick which peer's conversation to export.
+/// Lets users pick which peer's conversation to export. The picker reads from
+/// KnownPeer rather than scanning every Message, and only fetches messages for
+/// the chosen peer when the user actually taps a row.
 private struct ExportPickerView: View {
-    let allMessages: [Message]
+    let knownPeers: [KnownPeer]
     let deviceUUID: String
+    let fetchMessages: (String) -> [Message]
     let onSelect: (URL?) -> Void
-
-    private var peers: [String] {
-        Array(Set(allMessages.map { $0.peerID })).sorted()
-    }
 
     var body: some View {
         NavigationStack {
-            List(peers, id: \.self) { peerID in
-                Button(peerID) {
-                    let msgs = allMessages
-                        .filter { $0.peerID == peerID }
-                        .sorted { $0.timestamp < $1.timestamp }
-                    let peerUUID = msgs.first?.peerUUID
+            List(knownPeers) { known in
+                Button(known.displayName) {
+                    let msgs = fetchMessages(known.uuid)
                     onSelect(ExportManager.exportJSON(
-                        peerName: peerID,
-                        peerUUID: peerUUID,
+                        peerName: known.displayName,
+                        peerUUID: known.uuid,
                         deviceUUID: deviceUUID,
                         messages: msgs
                     ))

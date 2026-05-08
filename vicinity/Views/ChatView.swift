@@ -8,10 +8,30 @@ struct ChatView: View {
     @EnvironmentObject var multipeerSession: MultipeerSession
     @Environment(\.modelContext) private var modelContext
 
-    @Query private var allMessages: [Message]
+    /// Messages tagged with this peer's UUID (post-handshake / retrotagged).
+    @Query private var byUUID: [Message]
+    /// Messages tagged only by display-name peerID (pre-handshake).
+    @Query private var byDisplayName: [Message]
+
     @State private var inputText = ""
     @State private var showClearConfirmation = false
     @State private var lastSendFailed = false
+
+    init(peer: Peer) {
+        self.peer = peer
+        // Sentinel that won't match any real UUID, used when peer.uuid is nil so the
+        // byUUID query simply returns nothing rather than the full table.
+        let uuid = peer.uuid ?? "__no_uuid__"
+        let displayName = peer.displayName
+        _byUUID = Query(
+            filter: #Predicate<Message> { $0.peerUUID == uuid },
+            sort: \Message.timestamp
+        )
+        _byDisplayName = Query(
+            filter: #Predicate<Message> { $0.peerID == displayName },
+            sort: \Message.timestamp
+        )
+    }
 
     /// Live peer entry from the session — reflects the current connection state and UUID
     /// even when those fields have changed since this view was pushed. Prefers the
@@ -22,19 +42,15 @@ struct ChatView: View {
             ?? multipeerSession.peers.first { $0.displayName == peer.displayName }
     }
 
-    /// Messages filtered to this peer's conversation, sorted by time.
-    /// Prefers the live UUID (updated after handshake) over the snapshot value so the
-    /// correct filter is applied as soon as the UUID becomes known mid-session.
-    /// Falls back to display-name `peerID` for pre-handshake and pre-v1.1 messages.
+    /// Union of the two predicate-scoped queries, deduped by message id and sorted by
+    /// timestamp. Avoids the O(N) scan of @Query of all messages.
     private var messages: [Message] {
-        let filtered: [Message]
-        if let uuid = livePeer?.uuid ?? peer.uuid {
-            filtered = allMessages.filter { $0.peerUUID == uuid }
-        } else {
-            let displayName = peer.displayName
-            filtered = allMessages.filter { $0.peerID == displayName }
+        var seen = Set<UUID>()
+        var combined: [Message] = []
+        for m in byUUID + byDisplayName where seen.insert(m.id).inserted {
+            combined.append(m)
         }
-        return filtered.sorted { $0.timestamp < $1.timestamp }
+        return combined.sorted { $0.timestamp < $1.timestamp }
     }
 
     var body: some View {
