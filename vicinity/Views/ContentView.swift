@@ -83,18 +83,36 @@ struct ContentView: View {
                 syncProximityScanTargets()
             }
             // Persist incoming chat messages from any peer at the root level so messages
-            // are saved regardless of which chat (if any) is open.
-            .onReceive(multipeerSession.messagePublisher) { text, senderName, peerIDString in
+            // are saved regardless of which chat (if any) is open. Dedupe by wireID so a
+            // resent message (e.g. after a flap) doesn't create duplicate rows.
+            .onReceive(multipeerSession.messagePublisher) { text, senderName, peerIDString, wireID in
+                if let wireID,
+                   let existing = try? modelContext.fetch(
+                       FetchDescriptor<Message>(predicate: #Predicate { $0.wireID == wireID })
+                   ),
+                   !existing.isEmpty {
+                    return
+                }
                 let uuid = multipeerSession.peers.first { $0.displayName == peerIDString }?.uuid
                 let message = Message(
                     text: text,
                     senderName: senderName,
                     isOutgoing: false,
                     peerID: peerIDString,
-                    peerUUID: uuid
+                    peerUUID: uuid,
+                    wireID: wireID
                 )
                 modelContext.insert(message)
                 try? modelContext.save()
+            }
+            // Mark the matching outgoing Message as delivered when the peer ACKs.
+            .onReceive(multipeerSession.ackPublisher) { wireID in
+                if let match = try? modelContext.fetch(
+                    FetchDescriptor<Message>(predicate: #Predicate { $0.wireID == wireID })
+                ).first {
+                    match.deliveredAt = Date()
+                    try? modelContext.save()
+                }
             }
             // Upsert KnownPeer and retroactively tag unlinked messages when a handshake arrives.
             // ScheduledMessageService delivery is handled via its own Combine subscription.

@@ -37,11 +37,16 @@ final class MultipeerSession: NSObject, ObservableObject {
 
     // MARK: - Combine publishers
 
-    /// Emits (text, senderName, peerID) for every received chat message.
-    let messagePublisher = PassthroughSubject<(text: String, senderName: String, peerID: String), Never>()
+    /// Emits (text, senderName, peerID, wireID) for every received chat message.
+    /// `wireID` is nil when the sender is on a pre-WireMessage build (raw-UTF8 fallback).
+    let messagePublisher = PassthroughSubject<(text: String, senderName: String, peerID: String, wireID: UUID?), Never>()
 
     /// Emits (peerID, uuid, displayName) when a handshake arrives from a newly connected peer.
     let handshakePublisher = PassthroughSubject<(peerID: String, uuid: String, displayName: String), Never>()
+
+    /// Emits the wireID of an outgoing chat message that the peer just acknowledged
+    /// receiving. Subscribers mark the local Message as delivered.
+    let ackPublisher = PassthroughSubject<UUID, Never>()
 
     // MARK: - Pending invitation
 
@@ -104,17 +109,21 @@ final class MultipeerSession: NSObject, ObservableObject {
         browser.invitePeer(peer.peerID, to: session, withContext: nil, timeout: 30)
     }
 
-    /// Sends a chat message to a peer. Returns true if the framework accepted the send.
+    /// Sends a chat message to a peer. Returns the generated wireID on success
+    /// (callers persist this on the local Message so an ACK from the peer can flip
+    /// `deliveredAt`). Returns nil if the peer isn't connected or the framework refused.
     @discardableResult
-    func send(text: String, to peer: Peer) -> Bool {
-        guard peer.isConnected,
-              let data = text.data(using: .utf8) else { return false }
+    func send(text: String, to peer: Peer) -> UUID? {
+        guard peer.isConnected else { return nil }
+        let wireID = UUID()
+        let wire = WireMessage(type: "chat", id: wireID, text: text, uuid: nil, displayName: nil)
+        guard let data = try? JSONEncoder().encode(wire) else { return nil }
         do {
             try session.send(data, toPeers: [peer.peerID], with: .reliable)
-            return true
+            return wireID
         } catch {
             print("[MultipeerSession] Failed to send message: \(error)")
-            return false
+            return nil
         }
     }
 
@@ -170,9 +179,9 @@ final class MultipeerSession: NSObject, ObservableObject {
     /// Sends a message to a peer identified by display name (MCPeerID.displayName).
     /// Used by ScheduledMessageService which may not hold a Peer struct reference.
     @discardableResult
-    func send(text: String, toPeerDisplayName displayName: String) -> Bool {
+    func send(text: String, toPeerDisplayName displayName: String) -> UUID? {
         guard let peer = peers.first(where: { $0.displayName == displayName }),
-              peer.isConnected else { return false }
+              peer.isConnected else { return nil }
         return send(text: text, to: peer)
     }
 
@@ -237,8 +246,9 @@ final class MultipeerSession: NSObject, ObservableObject {
 
     private func sendHeartbeat() {
         let connectedPeerIDs = session.connectedPeers
+        let ping = WireMessage(type: "ping", id: nil, text: nil, uuid: nil, displayName: nil)
         guard !connectedPeerIDs.isEmpty,
-              let data = try? JSONEncoder().encode(["type": "ping"]) else { return }
+              let data = try? JSONEncoder().encode(ping) else { return }
         for peerID in connectedPeerIDs {
             do {
                 try session.send(data, toPeers: [peerID], with: .reliable)
@@ -337,17 +347,26 @@ final class MultipeerSession: NSObject, ObservableObject {
 
     /// Sends our UUID + display name to the connected peer so they can persist our identity.
     private func sendHandshake(to peerID: MCPeerID) {
-        let payload: [String: String] = [
-            "type": "handshake",
-            "uuid": deviceUUID,
-            "displayName": myPeerID.displayName
-        ]
-        guard let data = try? JSONEncoder().encode(payload) else { return }
+        let wire = WireMessage(
+            type: "handshake",
+            id: nil,
+            text: nil,
+            uuid: deviceUUID,
+            displayName: myPeerID.displayName
+        )
+        guard let data = try? JSONEncoder().encode(wire) else { return }
         do {
             try session.send(data, toPeers: [peerID], with: .reliable)
         } catch {
             print("[MultipeerSession] Failed to send handshake: \(error)")
         }
+    }
+
+    /// Sends an ACK back to the peer who sent us a chat message identified by `wireID`.
+    private func sendACK(for wireID: UUID, to peerID: MCPeerID) {
+        let wire = WireMessage(type: "ack", id: wireID, text: nil, uuid: nil, displayName: nil)
+        guard let data = try? JSONEncoder().encode(wire) else { return }
+        try? session.send(data, toPeers: [peerID], with: .reliable)
     }
 }
 
@@ -387,23 +406,44 @@ extension MultipeerSession: MCSessionDelegate {
                  didReceive data: Data,
                  fromPeer peerID: MCPeerID) {
 
-        if let map = try? JSONDecoder().decode([String: String].self, from: data) {
-            // Silently discard heartbeat pings.
-            if map["type"] == "ping" { return }
-
-            // Intercept handshake messages before treating data as chat.
-            if map["type"] == "handshake",
-               let uuid = map["uuid"],
-               let name = map["displayName"] {
+        if let wire = try? JSONDecoder().decode(WireMessage.self, from: data) {
+            switch wire.type {
+            case "ping":
+                return  // silently discard
+            case "handshake":
+                guard let uuid = wire.uuid, let name = wire.displayName else { return }
                 DispatchQueue.main.async { [weak self] in
                     guard let self else { return }
                     self.updatePeerUUID(peerID, uuid: uuid, resolvedDisplayName: name)
                     self.handshakePublisher.send((peerID: peerID.displayName, uuid: uuid, displayName: name))
                 }
                 return
+            case "ack":
+                guard let id = wire.id else { return }
+                DispatchQueue.main.async { [weak self] in
+                    self?.ackPublisher.send(id)
+                }
+                return
+            case "chat":
+                guard let text = wire.text else { return }
+                if let id = wire.id { sendACK(for: id, to: peerID) }
+                let senderName = peerID.displayName
+                let peerIDString = peerID.displayName
+                let wireID = wire.id
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else { return }
+                    let msg = ReceivedMessage(text: text, senderName: senderName)
+                    self.receivedMessages[peerIDString, default: []].append(msg)
+                    self.messagePublisher.send((text: text, senderName: senderName, peerID: peerIDString, wireID: wireID))
+                }
+                return
+            default:
+                return  // unknown type — ignore
             }
         }
 
+        // Fallback for peers running a pre-WireMessage build: treat raw UTF-8 as chat,
+        // no wireID (so no ACK / dedupe). Remove this branch in a later release.
         guard let text = String(data: data, encoding: .utf8) else { return }
         let senderName = peerID.displayName
         let peerIDString = peerID.displayName
@@ -412,7 +452,7 @@ extension MultipeerSession: MCSessionDelegate {
             guard let self else { return }
             let msg = ReceivedMessage(text: text, senderName: senderName)
             self.receivedMessages[peerIDString, default: []].append(msg)
-            self.messagePublisher.send((text: text, senderName: senderName, peerID: peerIDString))
+            self.messagePublisher.send((text: text, senderName: senderName, peerID: peerIDString, wireID: nil))
         }
     }
 
@@ -516,4 +556,15 @@ struct ReceivedMessage: Identifiable {
     let text: String
     let senderName: String
     let timestamp = Date()
+}
+
+/// Single Codable envelope used for every framed message on the wire.
+/// `type` discriminates: "chat", "ack", "handshake", "ping". Fields not relevant
+/// to a given type are nil.
+struct WireMessage: Codable {
+    let type: String
+    let id: UUID?
+    let text: String?
+    let uuid: String?
+    let displayName: String?
 }

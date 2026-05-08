@@ -207,16 +207,17 @@ struct ChatView: View {
         guard canSend, let livePeer else { return }
         let trimmed = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        let sent = multipeerSession.send(text: trimmed, to: livePeer)
-        lastSendFailed = !sent
+        let wireID = multipeerSession.send(text: trimmed, to: livePeer)
+        lastSendFailed = (wireID == nil)
 
-        if sent {
+        if let wireID {
             let message = Message(
                 text: trimmed,
                 senderName: multipeerSession.myDisplayName,
                 isOutgoing: true,
                 peerID: livePeer.displayName,
-                peerUUID: livePeer.uuid
+                peerUUID: livePeer.uuid,
+                wireID: wireID
             )
             modelContext.insert(message)
             try? modelContext.save()
