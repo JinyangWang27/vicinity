@@ -293,6 +293,13 @@ struct ContentView: View {
                 PeerRow(peer: peer)
             }
             .buttonStyle(.plain)
+            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                Button(role: .destructive) {
+                    multipeerSession.forget(peer: peer)
+                } label: {
+                    Label("Remove", systemImage: "trash")
+                }
+            }
         }
     }
 }

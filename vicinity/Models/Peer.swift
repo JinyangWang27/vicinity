@@ -7,6 +7,7 @@ struct Peer: Identifiable, Equatable, Hashable {
     var state: MCSessionState
     var uuid: String?                // populated after handshake
     var resolvedDisplayName: String? // display name received via handshake
+    var lastSeen: Date = Date()      // updated on every state change; drives idle pruning
 
     /// Stable identifier preferring the device UUID once the handshake has run.
     /// Pre-handshake we fall back to the MCPeerID display name — two devices that share

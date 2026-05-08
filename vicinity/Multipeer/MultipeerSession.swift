@@ -260,6 +260,8 @@ final class MultipeerSession: NSObject, ObservableObject {
     }
 
     private func sendHeartbeat() {
+        pruneIdlePeers()
+
         let connectedPeerIDs = session.connectedPeers
         let ping = WireMessage(type: "ping", id: nil, text: nil, uuid: nil, displayName: nil)
         guard !connectedPeerIDs.isEmpty,
@@ -277,6 +279,28 @@ final class MultipeerSession: NSObject, ObservableObject {
         }
     }
 
+    /// Remove peers that have been .notConnected for more than 5 minutes so the list
+    /// doesn't grow unbounded as the user walks past devices.
+    private func pruneIdlePeers() {
+        let cutoff = Date().addingTimeInterval(-5 * 60)
+        let stale = peers.filter { $0.state == .notConnected && $0.lastSeen < cutoff }
+        guard !stale.isEmpty else { return }
+        for peer in stale {
+            peerPreviousState.removeValue(forKey: peer.peerID)
+            autoReconnectAttempts.removeValue(forKey: peer.peerID)
+        }
+        peers.removeAll { peer in stale.contains(where: { $0.peerID == peer.peerID }) }
+    }
+
+    /// User-initiated removal of a peer from the list (e.g. swipe-to-remove). Cancels
+    /// any in-flight invite and discards state-tracking entries.
+    func forget(peer: Peer) {
+        session.cancelConnectPeer(peer.peerID)
+        peerPreviousState.removeValue(forKey: peer.peerID)
+        autoReconnectAttempts.removeValue(forKey: peer.peerID)
+        peers.removeAll { $0.peerID == peer.peerID }
+    }
+
     // MARK: - Private: peer state helpers
 
     private func peer(for peerID: MCPeerID) -> Peer? {
@@ -288,9 +312,11 @@ final class MultipeerSession: NSObject, ObservableObject {
             guard let self else { return }
             if let index = self.peers.firstIndex(where: { $0.peerID == peerID }) {
                 self.peers[index].state = state
+                self.peers[index].lastSeen = Date()
             } else if let index = self.peers.firstIndex(where: { $0.displayName == peerID.displayName }) {
                 // Fallback: MCPeerID instance changed (e.g. lostPeer firing for an old instance).
                 self.peers[index].state = state
+                self.peers[index].lastSeen = Date()
             }
         }
     }
