@@ -53,6 +53,8 @@ final class MultipeerSession: NSObject, ObservableObject {
     @Published var pendingInvitationPeerName: String?
     private var pendingInvitationHandler: ((Bool, MCSession?) -> Void)?
     private var pendingInvitationTimeoutWork: DispatchWorkItem?
+    private var pendingInvitationExpiry: Date?
+    private var didBecomeActiveObserver: NSObjectProtocol?
 
     // MARK: - Retry / reconnect tracking
 
@@ -99,6 +101,36 @@ final class MultipeerSession: NSObject, ObservableObject {
         startAdvertising()
         startBrowsing()
         startHeartbeat()
+        observeAppLifecycle()
+    }
+
+    deinit {
+        if let observer = didBecomeActiveObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+    }
+
+    // MARK: - App lifecycle
+
+    private func observeAppLifecycle() {
+        didBecomeActiveObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.handleDidBecomeActive()
+        }
+    }
+
+    /// Send one heartbeat right away so a connection that died while we were suspended
+    /// is detected immediately rather than up to 30 s later. Also expires any stale
+    /// pending invitation rather than leaving it queued for an asyncAfter that didn't
+    /// run while the run loop was paused.
+    private func handleDidBecomeActive() {
+        sendHeartbeat()
+        if let expiry = pendingInvitationExpiry, Date() >= expiry {
+            respondToInvitation(false)
+        }
     }
 
     // MARK: - Public API
@@ -137,6 +169,7 @@ final class MultipeerSession: NSObject, ObservableObject {
     func respondToInvitation(_ accept: Bool) {
         pendingInvitationTimeoutWork?.cancel()
         pendingInvitationTimeoutWork = nil
+        pendingInvitationExpiry = nil
         pendingInvitationHandler?(accept, accept ? session : nil)
         pendingInvitationHandler = nil
         DispatchQueue.main.async { [weak self] in
@@ -535,7 +568,11 @@ extension MultipeerSession: MCNearbyServiceAdvertiserDelegate {
                 }
             }
 
-            // Auto-decline if the user doesn't respond within 30 seconds.
+            // Auto-decline if the user doesn't respond within 30 seconds. The Date
+            // expiry is also re-checked on app resume in case the timer was queued
+            // while the run loop was suspended.
+            let expiry = Date().addingTimeInterval(30)
+            self.pendingInvitationExpiry = expiry
             let work = DispatchWorkItem { [weak self] in
                 self?.respondToInvitation(false)
             }
