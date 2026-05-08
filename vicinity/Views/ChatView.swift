@@ -56,6 +56,9 @@ struct ChatView: View {
     var body: some View {
         VStack(spacing: 0) {
             messageList
+            if peer.uuid == nil {
+                preHandshakeFooter
+            }
             Divider()
             inputBar
         }
@@ -144,6 +147,20 @@ struct ChatView: View {
                 proxy.scrollTo(last.id, anchor: .bottom)
             }
         }
+    }
+
+    /// Footer shown below the message list while the peer's UUID is unknown,
+    /// explaining why the schedule-message clock icon is disabled.
+    private var preHandshakeFooter: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "clock.badge.questionmark")
+            Text("Scheduling becomes available once connected.")
+            Spacer()
+        }
+        .font(.caption2)
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 4)
     }
 
     // MARK: - Input bar
