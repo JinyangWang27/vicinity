@@ -18,7 +18,7 @@ struct ContentView: View {
     @AppStorage("storageUnavailable") private var storageUnavailable = false
 
     var body: some View {
-        NavigationStack {
+        NavigationSplitView {
             Group {
                 if multipeerSession.peers.isEmpty {
                     emptyStateView
@@ -56,72 +56,84 @@ struct ContentView: View {
                     diagnosticBanner
                 }
             }
-            .sheet(isPresented: $showSettings) {
-                SettingsView()
-            }
-            .sheet(isPresented: $showKnownFriends) {
-                KnownFriendsView()
-            }
-            .navigationDestination(item: $selectedPeer) { peer in
+        } detail: {
+            if let peer = selectedPeer {
                 ChatView(peer: peer)
-            }
-            .alert("Connection Request", isPresented: Binding(
-                get: { multipeerSession.pendingInvitationPeerName != nil },
-                set: { _ in }
-            )) {
-                Button("Accept") {
-                    multipeerSession.respondToInvitation(true)
-                }
-                Button("Decline", role: .cancel) {
-                    multipeerSession.respondToInvitation(false)
-                }
-            } message: {
-                if let name = multipeerSession.pendingInvitationPeerName {
-                    Text("\(name) wants to chat.")
-                }
-            }
-            .onAppear {
-                scheduledMessageService.refreshScanTargets()
-            }
-            // Persist incoming chat messages from any peer at the root level so messages
-            // are saved regardless of which chat (if any) is open. Dedupe by wireID so a
-            // resent message (e.g. after a flap) doesn't create duplicate rows.
-            .onReceive(multipeerSession.messagePublisher) { text, senderName, peerIDString, wireID in
-                if let wireID,
-                   let existing = try? modelContext.fetch(
-                       FetchDescriptor<Message>(predicate: #Predicate { $0.wireID == wireID })
-                   ),
-                   !existing.isEmpty {
-                    return
-                }
-                let uuid = multipeerSession.peers.first { $0.displayName == peerIDString }?.uuid
-                let message = Message(
-                    text: text,
-                    senderName: senderName,
-                    isOutgoing: false,
-                    peerID: peerIDString,
-                    peerUUID: uuid,
-                    wireID: wireID
+            } else {
+                ContentUnavailableView(
+                    "Select a peer",
+                    systemImage: "antenna.radiowaves.left.and.right",
+                    description: Text("Tap a nearby person to start chatting.")
                 )
-                modelContext.insert(message)
+            }
+        }
+        .onChange(of: selectedPeer) { _, peer in
+            if let peer, !peer.isConnected {
+                multipeerSession.connect(to: peer)
+            }
+        }
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
+        }
+        .sheet(isPresented: $showKnownFriends) {
+            KnownFriendsView()
+        }
+        .alert("Connection Request", isPresented: Binding(
+            get: { multipeerSession.pendingInvitationPeerName != nil },
+            set: { _ in }
+        )) {
+            Button("Accept") {
+                multipeerSession.respondToInvitation(true)
+            }
+            Button("Decline", role: .cancel) {
+                multipeerSession.respondToInvitation(false)
+            }
+        } message: {
+            if let name = multipeerSession.pendingInvitationPeerName {
+                Text("\(name) wants to chat.")
+            }
+        }
+        .onAppear {
+            scheduledMessageService.refreshScanTargets()
+        }
+        // Persist incoming chat messages from any peer at the root level so messages
+        // are saved regardless of which chat (if any) is open. Dedupe by wireID so a
+        // resent message (e.g. after a flap) doesn't create duplicate rows.
+        .onReceive(multipeerSession.messagePublisher) { text, senderName, peerIDString, wireID in
+            if let wireID,
+               let existing = try? modelContext.fetch(
+                   FetchDescriptor<Message>(predicate: #Predicate { $0.wireID == wireID })
+               ),
+               !existing.isEmpty {
+                return
+            }
+            let uuid = multipeerSession.peers.first { $0.displayName == peerIDString }?.uuid
+            let message = Message(
+                text: text,
+                senderName: senderName,
+                isOutgoing: false,
+                peerID: peerIDString,
+                peerUUID: uuid,
+                wireID: wireID
+            )
+            modelContext.insert(message)
+            try? modelContext.save()
+        }
+        // Mark the matching outgoing Message as delivered when the peer ACKs.
+        .onReceive(multipeerSession.ackPublisher) { wireID in
+            if let match = try? modelContext.fetch(
+                FetchDescriptor<Message>(predicate: #Predicate { $0.wireID == wireID })
+            ).first {
+                match.deliveredAt = Date()
                 try? modelContext.save()
             }
-            // Mark the matching outgoing Message as delivered when the peer ACKs.
-            .onReceive(multipeerSession.ackPublisher) { wireID in
-                if let match = try? modelContext.fetch(
-                    FetchDescriptor<Message>(predicate: #Predicate { $0.wireID == wireID })
-                ).first {
-                    match.deliveredAt = Date()
-                    try? modelContext.save()
-                }
-            }
-            // Upsert KnownPeer and retroactively tag unlinked messages when a handshake arrives.
-            // ScheduledMessageService delivery is handled via its own Combine subscription.
-            .onReceive(multipeerSession.handshakePublisher) { peerID, uuid, displayName in
-                upsertKnownPeer(uuid: uuid, displayName: displayName)
-                retrotagMessages(peerID: peerID, uuid: uuid)
-                try? modelContext.save()
-            }
+        }
+        // Upsert KnownPeer and retroactively tag unlinked messages when a handshake arrives.
+        // ScheduledMessageService delivery is handled via its own Combine subscription.
+        .onReceive(multipeerSession.handshakePublisher) { peerID, uuid, displayName in
+            upsertKnownPeer(uuid: uuid, displayName: displayName)
+            retrotagMessages(peerID: peerID, uuid: uuid)
+            try? modelContext.save()
         }
     }
 
