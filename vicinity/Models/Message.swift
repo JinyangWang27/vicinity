@@ -11,9 +11,9 @@ class Message {
     var peerID: String      // MCPeerID.displayName (display-name fallback)
     var peerUUID: String?   // stable device UUID, set after handshake exchange
     /// Sender-generated identifier used for receiver-side dedupe and ACK matching.
-    /// Optional so legacy rows survive migration; promoted to @Attribute(.unique)
-    /// in a later release once every row is backfilled.
-    var wireID: UUID?
+    /// Optional because legacy rows (pre-WireMessage builds) have no wireID; SQL
+    /// UNIQUE allows multiple NULLs so the constraint is safe even with those rows.
+    @Attribute(.unique) var wireID: UUID?
     /// Set on receipt of a delivery ACK from the peer. Lets ChatView render a
     /// double-check indicator on outgoing messages once they're confirmed received.
     var deliveredAt: Date?
