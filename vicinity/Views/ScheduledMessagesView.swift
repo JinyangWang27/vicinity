@@ -63,6 +63,7 @@ struct ScheduledMessagesView: View {
                 } label: {
                     Image(systemName: "plus")
                 }
+                .accessibilityLabel(String(localized: "New scheduled message"))
             }
         }
         .sheet(isPresented: $showCompose) {

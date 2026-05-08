@@ -77,6 +77,7 @@ struct ChatView: View {
                     Image(systemName: "clock.badge.plus")
                 }
                 .disabled(peer.uuid == nil)
+                .accessibilityLabel(String(localized: "Schedule a message"))
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
@@ -89,6 +90,7 @@ struct ChatView: View {
                     Image(systemName: "ellipsis.circle")
                 }
                 .disabled(messages.isEmpty)
+                .accessibilityLabel(String(localized: "More options"))
             }
         }
         .confirmationDialog(
@@ -169,6 +171,7 @@ struct ChatView: View {
                         .foregroundStyle(canSend ? .blue : .gray)
                 }
                 .disabled(!canSend)
+                .accessibilityLabel(String(localized: "Send message"))
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)

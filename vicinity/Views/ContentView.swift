@@ -34,6 +34,7 @@ struct ContentView: View {
                     } label: {
                         Image(systemName: "person.2")
                     }
+                    .accessibilityLabel(String(localized: "Known friends"))
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -41,6 +42,7 @@ struct ContentView: View {
                     } label: {
                         Image(systemName: "gearshape")
                     }
+                    .accessibilityLabel(String(localized: "Settings"))
                 }
             }
             .safeAreaInset(edge: .top) {

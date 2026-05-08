@@ -48,6 +48,9 @@ struct SettingsView: View {
                                 .foregroundStyle(didCopyUUID ? .green : .blue)
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel(didCopyUUID
+                            ? String(localized: "Device ID copied")
+                            : String(localized: "Copy device ID"))
                     }
                     Text("Share this ID to restore your identity on a new device.")
                         .font(.caption)
