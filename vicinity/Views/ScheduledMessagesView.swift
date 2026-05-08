@@ -21,8 +21,12 @@ struct ScheduledMessagesView: View {
             .sorted { $0.createdAt > $1.createdAt }
     }
 
-    private var pending: [ScheduledMessage] { forThisPeer.filter { $0.status == .pending } }
-    private var history: [ScheduledMessage] { forThisPeer.filter { $0.status != .pending } }
+    private var pending: [ScheduledMessage] {
+        forThisPeer.filter { $0.status == .pending || $0.status == .sending }
+    }
+    private var history: [ScheduledMessage] {
+        forThisPeer.filter { $0.status == .sent || $0.status == .cancelled }
+    }
 
     var body: some View {
         List {
@@ -115,6 +119,7 @@ private struct ScheduledMessageRow: View {
     private var statusBadge: some View {
         let (label, color): (String, Color) = switch scheduled.status {
         case .pending:   ("Pending", .orange)
+        case .sending:   ("Sending\u{2026}", .blue)
         case .sent:      ("Sent", .green)
         case .cancelled: ("Cancelled", .gray)
         }

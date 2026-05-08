@@ -109,18 +109,20 @@ final class MultipeerSession: NSObject, ObservableObject {
         browser.invitePeer(peer.peerID, to: session, withContext: nil, timeout: 30)
     }
 
-    /// Sends a chat message to a peer. Returns the generated wireID on success
-    /// (callers persist this on the local Message so an ACK from the peer can flip
-    /// `deliveredAt`). Returns nil if the peer isn't connected or the framework refused.
+    /// Sends a chat message to a peer. Returns the wireID on success (callers persist
+    /// this on the local Message so an ACK from the peer can flip `deliveredAt`).
+    /// Pass an explicit `wireID` to retry an idempotent send (e.g. scheduled-message
+    /// retry) so the receiver can dedupe across attempts.
+    /// Returns nil if the peer isn't connected or the framework refused.
     @discardableResult
-    func send(text: String, to peer: Peer) -> UUID? {
+    func send(text: String, to peer: Peer, wireID: UUID? = nil) -> UUID? {
         guard peer.isConnected else { return nil }
-        let wireID = UUID()
-        let wire = WireMessage(type: "chat", id: wireID, text: text, uuid: nil, displayName: nil)
+        let id = wireID ?? UUID()
+        let wire = WireMessage(type: "chat", id: id, text: text, uuid: nil, displayName: nil)
         guard let data = try? JSONEncoder().encode(wire) else { return nil }
         do {
             try session.send(data, toPeers: [peer.peerID], with: .reliable)
-            return wireID
+            return id
         } catch {
             print("[MultipeerSession] Failed to send message: \(error)")
             return nil
@@ -179,10 +181,10 @@ final class MultipeerSession: NSObject, ObservableObject {
     /// Sends a message to a peer identified by display name (MCPeerID.displayName).
     /// Used by ScheduledMessageService which may not hold a Peer struct reference.
     @discardableResult
-    func send(text: String, toPeerDisplayName displayName: String) -> UUID? {
+    func send(text: String, toPeerDisplayName displayName: String, wireID: UUID? = nil) -> UUID? {
         guard let peer = peers.first(where: { $0.displayName == displayName }),
               peer.isConnected else { return nil }
-        return send(text: text, to: peer)
+        return send(text: text, to: peer, wireID: wireID)
     }
 
     // MARK: - Private: start/stop

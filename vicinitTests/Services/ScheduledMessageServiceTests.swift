@@ -58,13 +58,16 @@ final class ScheduledMessageServiceTests: XCTestCase {
         XCTAssertEqual(pending[0].text, "msg2")
     }
 
-    func test_handleHandshake_marksPendingMessageAsSent() throws {
+    func test_handleHandshake_revertsToPendingWhenSendFails() throws {
         try service.schedule(text: "hi", forPeerUUID: "peer-uuid-123")
-        // send is a no-op when the peer isn't in the MPC session, but status still updates
+        // No real peer is connected to the test MultipeerSession, so send() returns nil
+        // and the message rolls back to .pending so the next handshake can retry.
         service.handleHandshake(peerIDString: "SomePeer", uuid: "peer-uuid-123", displayName: "Alice")
         let messages = try context.fetch(FetchDescriptor<ScheduledMessage>())
-        XCTAssertEqual(messages[0].status, .sent)
-        XCTAssertNotNil(messages[0].sentAt)
+        XCTAssertEqual(messages[0].status, .pending)
+        XCTAssertNil(messages[0].sentAt)
+        // wireID is generated lazily on the first send attempt and persists across retries.
+        XCTAssertNotNil(messages[0].wireID)
     }
 
     func test_handleHandshake_ignoresNonMatchingUUID() throws {
