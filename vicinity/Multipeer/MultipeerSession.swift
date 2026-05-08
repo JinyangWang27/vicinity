@@ -480,12 +480,21 @@ extension MultipeerSession: MCNearbyServiceBrowserDelegate {
     func browser(_ browser: MCNearbyServiceBrowser,
                  foundPeer peerID: MCPeerID,
                  withDiscoveryInfo info: [String: String]?) {
+        // A peer that reappears gets a fresh reconnect budget; otherwise three earlier
+        // failed attempts would lock them out forever.
+        DispatchQueue.main.async { [weak self] in
+            self?.autoReconnectAttempts[peerID] = 0
+        }
         addPeerIfNeeded(peerID, state: .notConnected)
     }
 
     func browser(_ browser: MCNearbyServiceBrowser,
                  lostPeer peerID: MCPeerID) {
-        // Mark as disconnected rather than removing so users see the peer went away
+        // Mark as disconnected rather than removing so users see the peer went away.
+        // A clean disappearance shouldn't permanently consume the reconnect budget.
+        DispatchQueue.main.async { [weak self] in
+            self?.autoReconnectAttempts[peerID] = 0
+        }
         updatePeer(peerID, state: .notConnected)
     }
 
