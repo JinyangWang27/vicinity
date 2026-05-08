@@ -13,6 +13,7 @@ struct ScheduledMessagesView: View {
 
     @Query private var allScheduled: [ScheduledMessage]
     @State private var showCompose = false
+    @State private var pendingCancellation: ScheduledMessage?
 
     private var forThisPeer: [ScheduledMessage] {
         allScheduled
@@ -40,9 +41,13 @@ struct ScheduledMessagesView: View {
                 Section("Pending") {
                     ForEach(pending) { scheduled in
                         ScheduledMessageRow(scheduled: scheduled)
-                    }
-                    .onDelete { offsets in
-                        deleteScheduled(pending, at: offsets)
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                Button(role: .destructive) {
+                                    pendingCancellation = scheduled
+                                } label: {
+                                    Label("Cancel", systemImage: "xmark.circle")
+                                }
+                            }
                     }
                 }
             }
@@ -72,12 +77,22 @@ struct ScheduledMessagesView: View {
                 peerDisplayName: peerDisplayName
             )
         }
-    }
-
-    private func deleteScheduled(_ messages: [ScheduledMessage], at offsets: IndexSet) {
-        // ScheduledMessageService.cancel auto-syncs the proximity scan targets.
-        for index in offsets {
-            try? scheduledMessageService.cancel(messages[index])
+        .confirmationDialog(
+            "Cancel this message? It will not be sent.",
+            isPresented: Binding(
+                get: { pendingCancellation != nil },
+                set: { if !$0 { pendingCancellation = nil } }
+            ),
+            titleVisibility: .visible,
+            presenting: pendingCancellation
+        ) { scheduled in
+            Button("Cancel", role: .destructive) {
+                try? scheduledMessageService.cancel(scheduled)
+                pendingCancellation = nil
+            }
+            Button("Keep", role: .cancel) {
+                pendingCancellation = nil
+            }
         }
     }
 }

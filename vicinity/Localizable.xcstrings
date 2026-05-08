@@ -274,6 +274,9 @@
         }
       }
     },
+    "Keep": {
+      "extractionState": "manual"
+    },
     "Known Friends": {
       "localizations": {
         "zh-Hans": {
