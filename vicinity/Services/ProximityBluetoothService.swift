@@ -23,6 +23,14 @@ final class ProximityBluetoothService: NSObject, ObservableObject {
     /// Peer UUIDs to scan for (updated whenever scheduled messages change).
     @Published private(set) var scanTargetUUIDs: [String] = []
 
+    /// Current Bluetooth power state — drives the user-facing "Bluetooth is off"
+    /// banner in ContentView. Defaults to .unknown until the first didUpdateState fires.
+    @Published private(set) var bluetoothState: CBManagerState = .unknown
+
+    /// Current Bluetooth authorization — used to differentiate "Bluetooth permission
+    /// denied" from "Bluetooth is off" so the banner can deep-link to Settings.
+    @Published private(set) var bluetoothAuthorization: CBManagerAuthorization = .notDetermined
+
     /// Called on main thread when a target peer's BLE advertisement is detected.
     var onPeerDetected: ((String) -> Void)?
 
@@ -87,6 +95,10 @@ final class ProximityBluetoothService: NSObject, ObservableObject {
 extension ProximityBluetoothService: CBCentralManagerDelegate {
 
     func centralManagerDidUpdateState(_ central: CBCentralManager) {
+        DispatchQueue.main.async { [weak self] in
+            self?.bluetoothState = central.state
+            self?.bluetoothAuthorization = CBCentralManager.authorization
+        }
         if central.state == .poweredOn {
             restartScanIfPoweredOn()
         }
@@ -124,6 +136,15 @@ extension ProximityBluetoothService: CBCentralManagerDelegate {
 extension ProximityBluetoothService: CBPeripheralManagerDelegate {
 
     func peripheralManagerDidUpdateState(_ peripheral: CBPeripheralManager) {
+        // Mirror peripheral state into the published property if it's the more
+        // restrictive of the two — e.g. CBPeripheralManager's authorization fires
+        // sooner on first launch.
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            if peripheral.state != .poweredOn && self.bluetoothState == .poweredOn {
+                self.bluetoothState = peripheral.state
+            }
+        }
         if peripheral.state == .poweredOn {
             startAdvertisingIfPoweredOn()
         }

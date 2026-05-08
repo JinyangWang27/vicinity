@@ -1,11 +1,13 @@
 import SwiftUI
 import SwiftData
+import CoreBluetooth
 
 /// Root view — shows the list of discovered nearby peers.
 /// Also owns the global incoming-message persistence handler.
 struct ContentView: View {
     @EnvironmentObject var multipeerSession: MultipeerSession
     @EnvironmentObject var scheduledMessageService: ScheduledMessageService
+    @EnvironmentObject var proximityBluetoothService: ProximityBluetoothService
     @Environment(\.modelContext) private var modelContext
 
     @State private var selectedPeer: Peer?
@@ -49,9 +51,7 @@ struct ContentView: View {
                     if storeWasReset {
                         storeResetWarning
                     }
-                    if !multipeerSession.isDiscoverable {
-                        discoverabilityWarning
-                    }
+                    diagnosticBanner
                 }
             }
             .sheet(isPresented: $showSettings) {
@@ -179,17 +179,91 @@ struct ContentView: View {
         .background(Color.red.opacity(0.85))
     }
 
-    private var discoverabilityWarning: some View {
+    /// Targeted diagnostic banner. Picks the most actionable failure reason between
+    /// Bluetooth power state, BT authorization, and the catch-all multipeer
+    /// "discovery failed" signal. Returns an empty view when everything is healthy.
+    @ViewBuilder
+    private var diagnosticBanner: some View {
+        switch proximityBluetoothService.bluetoothAuthorization {
+        case .denied, .restricted:
+            permissionDeniedBanner
+        case .notDetermined, .allowedAlways:
+            switch proximityBluetoothService.bluetoothState {
+            case .poweredOff:
+                bluetoothOffBanner
+            case .unauthorized:
+                permissionDeniedBanner
+            case .unsupported:
+                bluetoothUnsupportedBanner
+            case .unknown, .resetting, .poweredOn:
+                if !multipeerSession.isDiscoverable {
+                    discoveryRetryingBanner
+                }
+            @unknown default:
+                EmptyView()
+            }
+        @unknown default:
+            EmptyView()
+        }
+    }
+
+    private var bluetoothOffBanner: some View {
+        bannerRow(
+            icon: "bolt.horizontal.circle",
+            text: String(localized: "Bluetooth is off — turn it on to find nearby people."),
+            background: .orange
+        )
+    }
+
+    private var bluetoothUnsupportedBanner: some View {
+        bannerRow(
+            icon: "exclamationmark.triangle",
+            text: String(localized: "This device doesn't support Bluetooth."),
+            background: .red
+        )
+    }
+
+    private var permissionDeniedBanner: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "hand.raised.slash")
+            Text("Bluetooth permission denied.")
+                .font(.caption)
+            Spacer()
+            Button("Open Settings") {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+            }
+            .font(.caption)
+            .buttonStyle(.bordered)
+            .controlSize(.mini)
+            .tint(.white)
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(Color.orange)
+    }
+
+    private var discoveryRetryingBanner: some View {
+        bannerRow(
+            icon: "exclamationmark.triangle",
+            text: String(localized: "Discovery failed — retrying\u{2026}"),
+            background: .orange
+        )
+    }
+
+    private func bannerRow(icon: String, text: String, background: Color) -> some View {
         HStack(spacing: 6) {
-            Image(systemName: "exclamationmark.triangle")
-            Text("Discovery failed — retrying…")
+            Image(systemName: icon)
+            Text(text)
             Spacer()
         }
         .font(.caption)
         .foregroundStyle(.white)
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
-        .background(Color.orange)
+        .background(background)
     }
 
     private var emptyStateView: some View {
