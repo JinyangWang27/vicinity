@@ -9,7 +9,6 @@ struct ScheduledMessagesView: View {
     let peerDisplayName: String
 
     @EnvironmentObject var scheduledMessageService: ScheduledMessageService
-    @EnvironmentObject var proximityBluetoothService: ProximityBluetoothService
     @Environment(\.modelContext) private var modelContext
 
     @Query private var allScheduled: [ScheduledMessage]
@@ -75,18 +74,10 @@ struct ScheduledMessagesView: View {
     }
 
     private func deleteScheduled(_ messages: [ScheduledMessage], at offsets: IndexSet) {
+        // ScheduledMessageService.cancel auto-syncs the proximity scan targets.
         for index in offsets {
             try? scheduledMessageService.cancel(messages[index])
         }
-        syncScanTargets()
-    }
-
-    private func syncScanTargets() {
-        let pending = ScheduledMessageStatus.pending
-        let all = (try? modelContext.fetch(
-            FetchDescriptor<ScheduledMessage>(predicate: #Predicate { $0.status == pending })
-        )) ?? []
-        proximityBluetoothService.updateScanTargets(Array(Set(all.map(\.targetPeerUUID))))
     }
 }
 

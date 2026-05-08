@@ -6,7 +6,6 @@ import SwiftData
 struct ContentView: View {
     @EnvironmentObject var multipeerSession: MultipeerSession
     @EnvironmentObject var scheduledMessageService: ScheduledMessageService
-    @EnvironmentObject var proximityBluetoothService: ProximityBluetoothService
     @Environment(\.modelContext) private var modelContext
 
     @State private var selectedPeer: Peer?
@@ -80,7 +79,7 @@ struct ContentView: View {
                 }
             }
             .onAppear {
-                syncProximityScanTargets()
+                scheduledMessageService.refreshScanTargets()
             }
             // Persist incoming chat messages from any peer at the root level so messages
             // are saved regardless of which chat (if any) is open. Dedupe by wireID so a
@@ -122,18 +121,6 @@ struct ContentView: View {
                 try? modelContext.save()
             }
         }
-    }
-
-    // MARK: - Proximity scan sync
-
-    /// Syncs ProximityBluetoothService scan targets with currently pending scheduled messages.
-    private func syncProximityScanTargets() {
-        let pending = ScheduledMessageStatus.pending
-        let all = (try? modelContext.fetch(
-            FetchDescriptor<ScheduledMessage>(predicate: #Predicate { $0.status == pending })
-        )) ?? []
-        let uuids = Array(Set(all.map(\.targetPeerUUID)))
-        proximityBluetoothService.updateScanTargets(uuids)
     }
 
     /// Insert or update the KnownPeer record for this UUID.

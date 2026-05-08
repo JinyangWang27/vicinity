@@ -8,8 +8,6 @@ struct ScheduleMessageView: View {
     let peerDisplayName: String
 
     @EnvironmentObject var scheduledMessageService: ScheduledMessageService
-    @EnvironmentObject var proximityBluetoothService: ProximityBluetoothService
-    @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
     @State private var messageText = ""
@@ -58,18 +56,9 @@ struct ScheduleMessageView: View {
         let trimmed = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
         do {
             try scheduledMessageService.schedule(text: trimmed, forPeerUUID: peerUUID)
-            syncScanTargets()
             dismiss()
         } catch {
             errorMessage = "Failed to save: \(error.localizedDescription)"
         }
-    }
-
-    private func syncScanTargets() {
-        let pending = ScheduledMessageStatus.pending
-        let all = (try? modelContext.fetch(
-            FetchDescriptor<ScheduledMessage>(predicate: #Predicate { $0.status == pending })
-        )) ?? []
-        proximityBluetoothService.updateScanTargets(Array(Set(all.map(\.targetPeerUUID))))
     }
 }

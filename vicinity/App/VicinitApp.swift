@@ -48,14 +48,15 @@ struct VicinitApp: App {
         let session = MultipeerSession()
         _multipeerSession = StateObject(wrappedValue: session)
 
-        let sms = ScheduledMessageService(
-            modelContext: modelContainer.mainContext,
-            multipeerSession: session
-        )
-        _scheduledMessageService = StateObject(wrappedValue: sms)
-
         let pbs = ProximityBluetoothService(deviceUUID: session.myDeviceUUID)
         _proximityBluetoothService = StateObject(wrappedValue: pbs)
+
+        let sms = ScheduledMessageService(
+            modelContext: modelContainer.mainContext,
+            multipeerSession: session,
+            proximityBluetoothService: pbs
+        )
+        _scheduledMessageService = StateObject(wrappedValue: sms)
     }
 
     private static func makeModelContainer() -> ModelContainer {

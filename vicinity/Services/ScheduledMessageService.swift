@@ -9,11 +9,15 @@ final class ScheduledMessageService: ObservableObject {
 
     private let modelContext: ModelContext
     private weak var multipeerSession: MultipeerSession?
+    private weak var proximityBluetoothService: ProximityBluetoothService?
     private var cancellables = Set<AnyCancellable>()
 
-    init(modelContext: ModelContext, multipeerSession: MultipeerSession) {
+    init(modelContext: ModelContext,
+         multipeerSession: MultipeerSession,
+         proximityBluetoothService: ProximityBluetoothService? = nil) {
         self.modelContext = modelContext
         self.multipeerSession = multipeerSession
+        self.proximityBluetoothService = proximityBluetoothService
         subscribeToHandshakes()
         requestNotificationPermission()
     }
@@ -24,11 +28,27 @@ final class ScheduledMessageService: ObservableObject {
         let message = ScheduledMessage(targetPeerUUID: peerUUID, text: text)
         modelContext.insert(message)
         try modelContext.save()
+        refreshScanTargets()
     }
 
     func cancel(_ scheduledMessage: ScheduledMessage) throws {
         scheduledMessage.status = .cancelled
         try modelContext.save()
+        refreshScanTargets()
+    }
+
+    /// Recomputes the set of peer UUIDs the proximity BLE scan should target. Call
+    /// after any schedule/cancel; the BLE arm only wakes the app on these UUIDs.
+    func refreshScanTargets() {
+        guard let proximityBluetoothService else { return }
+        let pending = ScheduledMessageStatus.pending
+        let sending = ScheduledMessageStatus.sending
+        let all = (try? modelContext.fetch(
+            FetchDescriptor<ScheduledMessage>(
+                predicate: #Predicate { $0.status == pending || $0.status == sending }
+            )
+        )) ?? []
+        proximityBluetoothService.updateScanTargets(Array(Set(all.map(\.targetPeerUUID))))
     }
 
     func pendingMessages(forPeerUUID peerUUID: String) throws -> [ScheduledMessage] {
