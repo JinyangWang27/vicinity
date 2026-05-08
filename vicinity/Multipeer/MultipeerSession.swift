@@ -37,26 +37,35 @@ final class MultipeerSession: NSObject, ObservableObject {
 
     // MARK: - Combine publishers
 
-    /// Emits (text, senderName, peerID) for every received chat message.
-    let messagePublisher = PassthroughSubject<(text: String, senderName: String, peerID: String), Never>()
+    /// Emits (text, senderName, peerID, wireID) for every received chat message.
+    /// `wireID` is nil when the sender is on a pre-WireMessage build (raw-UTF8 fallback).
+    let messagePublisher = PassthroughSubject<(text: String, senderName: String, peerID: String, wireID: UUID?), Never>()
 
     /// Emits (peerID, uuid, displayName) when a handshake arrives from a newly connected peer.
     let handshakePublisher = PassthroughSubject<(peerID: String, uuid: String, displayName: String), Never>()
+
+    /// Emits the wireID of an outgoing chat message that the peer just acknowledged
+    /// receiving. Subscribers mark the local Message as delivered.
+    let ackPublisher = PassthroughSubject<UUID, Never>()
 
     // MARK: - Pending invitation
 
     @Published var pendingInvitationPeerName: String?
     private var pendingInvitationHandler: ((Bool, MCSession?) -> Void)?
     private var pendingInvitationTimeoutWork: DispatchWorkItem?
+    private var pendingInvitationExpiry: Date?
+    private var didBecomeActiveObserver: NSObjectProtocol?
 
     // MARK: - Retry / reconnect tracking
 
     private var advertiserRetryDelay: TimeInterval = 2
     private var browserRetryDelay: TimeInterval = 2
-    /// Previous MCSession state per peer (keyed by display name) — used to detect drop-from-connected.
-    private var peerPreviousState: [String: MCSessionState] = [:]
-    /// Auto-reconnect attempt count per peer (keyed by display name). Reset on successful connect.
-    private var autoReconnectAttempts: [String: Int] = [:]
+    /// Previous MCSession state per peer — used to detect drop-from-connected.
+    /// Keyed by MCPeerID rather than display name so two devices sharing a name don't
+    /// corrupt each other's state tracking.
+    private var peerPreviousState: [MCPeerID: MCSessionState] = [:]
+    /// Auto-reconnect attempt count per peer. Reset on successful connect.
+    private var autoReconnectAttempts: [MCPeerID: Int] = [:]
     private var heartbeatTimer: Timer?
 
     // MARK: - Init
@@ -92,6 +101,36 @@ final class MultipeerSession: NSObject, ObservableObject {
         startAdvertising()
         startBrowsing()
         startHeartbeat()
+        observeAppLifecycle()
+    }
+
+    deinit {
+        if let observer = didBecomeActiveObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+    }
+
+    // MARK: - App lifecycle
+
+    private func observeAppLifecycle() {
+        didBecomeActiveObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.handleDidBecomeActive()
+        }
+    }
+
+    /// Send one heartbeat right away so a connection that died while we were suspended
+    /// is detected immediately rather than up to 30 s later. Also expires any stale
+    /// pending invitation rather than leaving it queued for an asyncAfter that didn't
+    /// run while the run loop was paused.
+    private func handleDidBecomeActive() {
+        sendHeartbeat()
+        if let expiry = pendingInvitationExpiry, Date() >= expiry {
+            respondToInvitation(false)
+        }
     }
 
     // MARK: - Public API
@@ -102,17 +141,23 @@ final class MultipeerSession: NSObject, ObservableObject {
         browser.invitePeer(peer.peerID, to: session, withContext: nil, timeout: 30)
     }
 
-    /// Sends a chat message to a peer. Returns true if the framework accepted the send.
+    /// Sends a chat message to a peer. Returns the wireID on success (callers persist
+    /// this on the local Message so an ACK from the peer can flip `deliveredAt`).
+    /// Pass an explicit `wireID` to retry an idempotent send (e.g. scheduled-message
+    /// retry) so the receiver can dedupe across attempts.
+    /// Returns nil if the peer isn't connected or the framework refused.
     @discardableResult
-    func send(text: String, to peer: Peer) -> Bool {
-        guard peer.isConnected,
-              let data = text.data(using: .utf8) else { return false }
+    func send(text: String, to peer: Peer, wireID: UUID? = nil) -> UUID? {
+        guard peer.isConnected else { return nil }
+        let id = wireID ?? UUID()
+        let wire = WireMessage(type: "chat", id: id, text: text, uuid: nil, displayName: nil)
+        guard let data = try? JSONEncoder().encode(wire) else { return nil }
         do {
             try session.send(data, toPeers: [peer.peerID], with: .reliable)
-            return true
+            return id
         } catch {
             print("[MultipeerSession] Failed to send message: \(error)")
-            return false
+            return nil
         }
     }
 
@@ -124,10 +169,24 @@ final class MultipeerSession: NSObject, ObservableObject {
     func respondToInvitation(_ accept: Bool) {
         pendingInvitationTimeoutWork?.cancel()
         pendingInvitationTimeoutWork = nil
+        pendingInvitationExpiry = nil
         pendingInvitationHandler?(accept, accept ? session : nil)
         pendingInvitationHandler = nil
         DispatchQueue.main.async { [weak self] in
             self?.pendingInvitationPeerName = nil
+        }
+    }
+
+    /// Kick MultipeerConnectivity to re-invite a peer whose UUID was just observed via
+    /// the BLE proximity scan. Does nothing if we're already connected/connecting, or if
+    /// the peer hasn't been discovered by MC yet (foundPeer hasn't fired) — in that
+    /// case MC's own browser will pick them up moments later.
+    func kickReconnect(forUUID uuid: String) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            guard let peer = self.peers.first(where: { $0.uuid == uuid }),
+                  peer.state == .notConnected else { return }
+            self.connect(to: peer)
         }
     }
 
@@ -168,10 +227,10 @@ final class MultipeerSession: NSObject, ObservableObject {
     /// Sends a message to a peer identified by display name (MCPeerID.displayName).
     /// Used by ScheduledMessageService which may not hold a Peer struct reference.
     @discardableResult
-    func send(text: String, toPeerDisplayName displayName: String) -> Bool {
-        guard let peer = peers.first(where: { $0.id == displayName }),
-              peer.isConnected else { return false }
-        return send(text: text, to: peer)
+    func send(text: String, toPeerDisplayName displayName: String, wireID: UUID? = nil) -> UUID? {
+        guard let peer = peers.first(where: { $0.displayName == displayName }),
+              peer.isConnected else { return nil }
+        return send(text: text, to: peer, wireID: wireID)
     }
 
     // MARK: - Private: start/stop
@@ -187,6 +246,7 @@ final class MultipeerSession: NSObject, ObservableObject {
 
     // MARK: - Private: advertiser/browser retry with exponential backoff
 
+    /// Must be called on the main queue. Mutates `advertiserRetryDelay`.
     private func scheduleAdvertiserRestart() {
         let delay = advertiserRetryDelay
         advertiserRetryDelay = min(advertiserRetryDelay * 2, 30)
@@ -195,6 +255,7 @@ final class MultipeerSession: NSObject, ObservableObject {
         }
     }
 
+    /// Must be called on the main queue. Mutates `browserRetryDelay`.
     private func scheduleBrowserRestart() {
         let delay = browserRetryDelay
         browserRetryDelay = min(browserRetryDelay * 2, 30)
@@ -206,12 +267,13 @@ final class MultipeerSession: NSObject, ObservableObject {
     // MARK: - Private: auto-reconnect (max 3 attempts per peer)
 
     private func scheduleAutoReconnect(for peer: Peer) {
-        let attempts = autoReconnectAttempts[peer.id, default: 0]
+        let key = peer.peerID
+        let attempts = autoReconnectAttempts[key, default: 0]
         guard attempts < 3 else { return }
-        autoReconnectAttempts[peer.id] = attempts + 1
+        autoReconnectAttempts[key] = attempts + 1
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
             guard let self,
-                  let current = self.peers.first(where: { $0.id == peer.id }),
+                  let current = self.peers.first(where: { $0.peerID == peer.peerID }),
                   current.state == .notConnected else { return }
             self.connect(to: current)
         }
@@ -231,9 +293,12 @@ final class MultipeerSession: NSObject, ObservableObject {
     }
 
     private func sendHeartbeat() {
+        pruneIdlePeers()
+
         let connectedPeerIDs = session.connectedPeers
+        let ping = WireMessage(type: "ping", id: nil, text: nil, uuid: nil, displayName: nil)
         guard !connectedPeerIDs.isEmpty,
-              let data = try? JSONEncoder().encode(["type": "ping"]) else { return }
+              let data = try? JSONEncoder().encode(ping) else { return }
         for peerID in connectedPeerIDs {
             do {
                 try session.send(data, toPeers: [peerID], with: .reliable)
@@ -247,6 +312,28 @@ final class MultipeerSession: NSObject, ObservableObject {
         }
     }
 
+    /// Remove peers that have been .notConnected for more than 5 minutes so the list
+    /// doesn't grow unbounded as the user walks past devices.
+    private func pruneIdlePeers() {
+        let cutoff = Date().addingTimeInterval(-5 * 60)
+        let stale = peers.filter { $0.state == .notConnected && $0.lastSeen < cutoff }
+        guard !stale.isEmpty else { return }
+        for peer in stale {
+            peerPreviousState.removeValue(forKey: peer.peerID)
+            autoReconnectAttempts.removeValue(forKey: peer.peerID)
+        }
+        peers.removeAll { peer in stale.contains(where: { $0.peerID == peer.peerID }) }
+    }
+
+    /// User-initiated removal of a peer from the list (e.g. swipe-to-remove). Cancels
+    /// any in-flight invite and discards state-tracking entries.
+    func forget(peer: Peer) {
+        session.cancelConnectPeer(peer.peerID)
+        peerPreviousState.removeValue(forKey: peer.peerID)
+        autoReconnectAttempts.removeValue(forKey: peer.peerID)
+        peers.removeAll { $0.peerID == peer.peerID }
+    }
+
     // MARK: - Private: peer state helpers
 
     private func peer(for peerID: MCPeerID) -> Peer? {
@@ -258,9 +345,11 @@ final class MultipeerSession: NSObject, ObservableObject {
             guard let self else { return }
             if let index = self.peers.firstIndex(where: { $0.peerID == peerID }) {
                 self.peers[index].state = state
-            } else if let index = self.peers.firstIndex(where: { $0.id == peerID.displayName }) {
+                self.peers[index].lastSeen = Date()
+            } else if let index = self.peers.firstIndex(where: { $0.displayName == peerID.displayName }) {
                 // Fallback: MCPeerID instance changed (e.g. lostPeer firing for an old instance).
                 self.peers[index].state = state
+                self.peers[index].lastSeen = Date()
             }
         }
     }
@@ -273,30 +362,44 @@ final class MultipeerSession: NSObject, ObservableObject {
             if self.peers.contains(where: { $0.peerID == peerID }) { return }
 
             // Secondary: same display name but a new MCPeerID instance (BLE rediscovery).
-            if let index = self.peers.firstIndex(where: { $0.id == peerID.displayName }) {
+            if let index = self.peers.firstIndex(where: { $0.displayName == peerID.displayName }) {
                 let existing = self.peers[index]
                 if existing.state == .notConnected {
                     // Safe to replace: no live session on the old MCPeerID.
-                    var replacement = Peer(id: peerID.displayName, peerID: peerID, state: state)
+                    var replacement = Peer(peerID: peerID, state: state)
                     replacement.uuid = existing.uuid
                     replacement.resolvedDisplayName = existing.resolvedDisplayName
                     self.peers[index] = replacement
+                    self.migratePeerKey(from: existing.peerID, to: peerID)
                 } else if existing.state == .connecting {
                     // BLE produced a new MCPeerID while an invite is in-flight on the old one.
                     // Cancel the stale invite and swap in the fresh MCPeerID so the next
                     // connect() uses the right object.
                     self.session.cancelConnectPeer(existing.peerID)
-                    var replacement = Peer(id: peerID.displayName, peerID: peerID, state: .notConnected)
+                    var replacement = Peer(peerID: peerID, state: .notConnected)
                     replacement.uuid = existing.uuid
                     replacement.resolvedDisplayName = existing.resolvedDisplayName
                     self.peers[index] = replacement
+                    self.migratePeerKey(from: existing.peerID, to: peerID)
                 }
                 // .connected: session is live on the old MCPeerID — leave it.
                 return
             }
 
             // Genuinely new peer.
-            self.peers.append(Peer(id: peerID.displayName, peerID: peerID, state: state))
+            self.peers.append(Peer(peerID: peerID, state: state))
+        }
+    }
+
+    /// When BLE rediscovery replaces an MCPeerID instance for the same display name,
+    /// move our state-tracking entries onto the new key so reconnect counters and
+    /// previous-state history don't leak.
+    private func migratePeerKey(from old: MCPeerID, to new: MCPeerID) {
+        if let value = peerPreviousState.removeValue(forKey: old) {
+            peerPreviousState[new] = value
+        }
+        if let value = autoReconnectAttempts.removeValue(forKey: old) {
+            autoReconnectAttempts[new] = value
         }
     }
 
@@ -318,17 +421,26 @@ final class MultipeerSession: NSObject, ObservableObject {
 
     /// Sends our UUID + display name to the connected peer so they can persist our identity.
     private func sendHandshake(to peerID: MCPeerID) {
-        let payload: [String: String] = [
-            "type": "handshake",
-            "uuid": deviceUUID,
-            "displayName": myPeerID.displayName
-        ]
-        guard let data = try? JSONEncoder().encode(payload) else { return }
+        let wire = WireMessage(
+            type: "handshake",
+            id: nil,
+            text: nil,
+            uuid: deviceUUID,
+            displayName: myPeerID.displayName
+        )
+        guard let data = try? JSONEncoder().encode(wire) else { return }
         do {
             try session.send(data, toPeers: [peerID], with: .reliable)
         } catch {
             print("[MultipeerSession] Failed to send handshake: \(error)")
         }
+    }
+
+    /// Sends an ACK back to the peer who sent us a chat message identified by `wireID`.
+    private func sendACK(for wireID: UUID, to peerID: MCPeerID) {
+        let wire = WireMessage(type: "ack", id: wireID, text: nil, uuid: nil, displayName: nil)
+        guard let data = try? JSONEncoder().encode(wire) else { return }
+        try? session.send(data, toPeers: [peerID], with: .reliable)
     }
 }
 
@@ -339,20 +451,27 @@ extension MultipeerSession: MCSessionDelegate {
     func session(_ session: MCSession,
                  peer peerID: MCPeerID,
                  didChange state: MCSessionState) {
-        let previousState = peerPreviousState[peerID.displayName]
-        peerPreviousState[peerID.displayName] = state
-
-        updatePeer(peerID, state: state)
-
+        // Send the handshake on the MC delegate queue (MCSession.send is thread-safe and
+        // we want it dispatched as soon as the session reports .connected). Everything
+        // that touches our state-tracking dictionaries is dispatched to main below so
+        // those reads/writes are confined to a single queue.
         if state == .connected {
-            autoReconnectAttempts[peerID.displayName] = 0
             sendHandshake(to: peerID)
-        } else if state == .notConnected, previousState == .connected {
-            // Peer dropped from an established connection — schedule auto-reconnect.
-            DispatchQueue.main.async { [weak self] in
-                guard let self,
-                      let peer = self.peers.first(where: { $0.id == peerID.displayName }) else { return }
-                self.scheduleAutoReconnect(for: peer)
+        }
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            let previousState = self.peerPreviousState[peerID]
+            self.peerPreviousState[peerID] = state
+
+            self.updatePeer(peerID, state: state)
+
+            if state == .connected {
+                self.autoReconnectAttempts[peerID] = 0
+            } else if state == .notConnected, previousState == .connected {
+                if let peer = self.peers.first(where: { $0.peerID == peerID }) {
+                    self.scheduleAutoReconnect(for: peer)
+                }
             }
         }
     }
@@ -361,23 +480,44 @@ extension MultipeerSession: MCSessionDelegate {
                  didReceive data: Data,
                  fromPeer peerID: MCPeerID) {
 
-        if let map = try? JSONDecoder().decode([String: String].self, from: data) {
-            // Silently discard heartbeat pings.
-            if map["type"] == "ping" { return }
-
-            // Intercept handshake messages before treating data as chat.
-            if map["type"] == "handshake",
-               let uuid = map["uuid"],
-               let name = map["displayName"] {
+        if let wire = try? JSONDecoder().decode(WireMessage.self, from: data) {
+            switch wire.type {
+            case "ping":
+                return  // silently discard
+            case "handshake":
+                guard let uuid = wire.uuid, let name = wire.displayName else { return }
                 DispatchQueue.main.async { [weak self] in
                     guard let self else { return }
                     self.updatePeerUUID(peerID, uuid: uuid, resolvedDisplayName: name)
                     self.handshakePublisher.send((peerID: peerID.displayName, uuid: uuid, displayName: name))
                 }
                 return
+            case "ack":
+                guard let id = wire.id else { return }
+                DispatchQueue.main.async { [weak self] in
+                    self?.ackPublisher.send(id)
+                }
+                return
+            case "chat":
+                guard let text = wire.text else { return }
+                if let id = wire.id { sendACK(for: id, to: peerID) }
+                let senderName = peerID.displayName
+                let peerIDString = peerID.displayName
+                let wireID = wire.id
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else { return }
+                    let msg = ReceivedMessage(text: text, senderName: senderName)
+                    self.receivedMessages[peerIDString, default: []].append(msg)
+                    self.messagePublisher.send((text: text, senderName: senderName, peerID: peerIDString, wireID: wireID))
+                }
+                return
+            default:
+                return  // unknown type — ignore
             }
         }
 
+        // Fallback for peers running a pre-WireMessage build: treat raw UTF-8 as chat,
+        // no wireID (so no ACK / dedupe). Remove this branch in a later release.
         guard let text = String(data: data, encoding: .utf8) else { return }
         let senderName = peerID.displayName
         let peerIDString = peerID.displayName
@@ -386,7 +526,7 @@ extension MultipeerSession: MCSessionDelegate {
             guard let self else { return }
             let msg = ReceivedMessage(text: text, senderName: senderName)
             self.receivedMessages[peerIDString, default: []].append(msg)
-            self.messagePublisher.send((text: text, senderName: senderName, peerID: peerIDString))
+            self.messagePublisher.send((text: text, senderName: senderName, peerID: peerIDString, wireID: nil))
         }
     }
 
@@ -428,7 +568,11 @@ extension MultipeerSession: MCNearbyServiceAdvertiserDelegate {
                 }
             }
 
-            // Auto-decline if the user doesn't respond within 30 seconds.
+            // Auto-decline if the user doesn't respond within 30 seconds. The Date
+            // expiry is also re-checked on app resume in case the timer was queued
+            // while the run loop was suspended.
+            let expiry = Date().addingTimeInterval(30)
+            self.pendingInvitationExpiry = expiry
             let work = DispatchWorkItem { [weak self] in
                 self?.respondToInvitation(false)
             }
@@ -440,8 +584,10 @@ extension MultipeerSession: MCNearbyServiceAdvertiserDelegate {
     func advertiser(_ advertiser: MCNearbyServiceAdvertiser,
                     didNotStartAdvertisingPeer error: Error) {
         print("[MultipeerSession] Advertising error: \(error)")
-        DispatchQueue.main.async { self.isDiscoverable = false }
-        scheduleAdvertiserRestart()
+        DispatchQueue.main.async { [weak self] in
+            self?.isDiscoverable = false
+            self?.scheduleAdvertiserRestart()
+        }
     }
 }
 
@@ -452,20 +598,31 @@ extension MultipeerSession: MCNearbyServiceBrowserDelegate {
     func browser(_ browser: MCNearbyServiceBrowser,
                  foundPeer peerID: MCPeerID,
                  withDiscoveryInfo info: [String: String]?) {
+        // A peer that reappears gets a fresh reconnect budget; otherwise three earlier
+        // failed attempts would lock them out forever.
+        DispatchQueue.main.async { [weak self] in
+            self?.autoReconnectAttempts[peerID] = 0
+        }
         addPeerIfNeeded(peerID, state: .notConnected)
     }
 
     func browser(_ browser: MCNearbyServiceBrowser,
                  lostPeer peerID: MCPeerID) {
-        // Mark as disconnected rather than removing so users see the peer went away
+        // Mark as disconnected rather than removing so users see the peer went away.
+        // A clean disappearance shouldn't permanently consume the reconnect budget.
+        DispatchQueue.main.async { [weak self] in
+            self?.autoReconnectAttempts[peerID] = 0
+        }
         updatePeer(peerID, state: .notConnected)
     }
 
     func browser(_ browser: MCNearbyServiceBrowser,
                  didNotStartBrowsingForPeers error: Error) {
         print("[MultipeerSession] Browsing error: \(error)")
-        DispatchQueue.main.async { self.isDiscoverable = false }
-        scheduleBrowserRestart()
+        DispatchQueue.main.async { [weak self] in
+            self?.isDiscoverable = false
+            self?.scheduleBrowserRestart()
+        }
     }
 }
 
@@ -477,4 +634,15 @@ struct ReceivedMessage: Identifiable {
     let text: String
     let senderName: String
     let timestamp = Date()
+}
+
+/// Single Codable envelope used for every framed message on the wire.
+/// `type` discriminates: "chat", "ack", "handshake", "ping". Fields not relevant
+/// to a given type are nil.
+struct WireMessage: Codable {
+    let type: String
+    let id: UUID?
+    let text: String?
+    let uuid: String?
+    let displayName: String?
 }

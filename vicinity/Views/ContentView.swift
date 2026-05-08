@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import CoreBluetooth
 
 /// Root view — shows the list of discovered nearby peers.
 /// Also owns the global incoming-message persistence handler.
@@ -13,8 +14,11 @@ struct ContentView: View {
     @State private var showSettings = false
     @State private var showKnownFriends = false
 
+    @AppStorage("storeWasReset") private var storeWasReset = false
+    @AppStorage("storageUnavailable") private var storageUnavailable = false
+
     var body: some View {
-        NavigationStack {
+        NavigationSplitView {
             Group {
                 if multipeerSession.peers.isEmpty {
                     emptyStateView
@@ -30,6 +34,7 @@ struct ContentView: View {
                     } label: {
                         Image(systemName: "person.2")
                     }
+                    .accessibilityLabel(String(localized: "Known friends"))
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -37,74 +42,99 @@ struct ContentView: View {
                     } label: {
                         Image(systemName: "gearshape")
                     }
+                    .accessibilityLabel(String(localized: "Settings"))
                 }
             }
             .safeAreaInset(edge: .top) {
-                if !multipeerSession.isDiscoverable {
-                    discoverabilityWarning
+                VStack(spacing: 0) {
+                    if storageUnavailable {
+                        storageUnavailableWarning
+                    }
+                    if storeWasReset {
+                        storeResetWarning
+                    }
+                    diagnosticBanner
                 }
             }
-            .sheet(isPresented: $showSettings) {
-                SettingsView()
-            }
-            .sheet(isPresented: $showKnownFriends) {
-                KnownFriendsView()
-            }
-            .navigationDestination(item: $selectedPeer) { peer in
+        } detail: {
+            if let peer = selectedPeer {
                 ChatView(peer: peer)
-            }
-            .alert("Connection Request", isPresented: Binding(
-                get: { multipeerSession.pendingInvitationPeerName != nil },
-                set: { _ in }
-            )) {
-                Button("Accept") {
-                    multipeerSession.respondToInvitation(true)
-                }
-                Button("Decline", role: .cancel) {
-                    multipeerSession.respondToInvitation(false)
-                }
-            } message: {
-                if let name = multipeerSession.pendingInvitationPeerName {
-                    Text("\(name) wants to chat.")
-                }
-            }
-            .onAppear {
-                syncProximityScanTargets()
-            }
-            // Persist incoming chat messages from any peer at the root level so messages
-            // are saved regardless of which chat (if any) is open.
-            .onReceive(multipeerSession.messagePublisher) { text, senderName, peerIDString in
-                let uuid = multipeerSession.peers.first { $0.id == peerIDString }?.uuid
-                let message = Message(
-                    text: text,
-                    senderName: senderName,
-                    isOutgoing: false,
-                    peerID: peerIDString,
-                    peerUUID: uuid
+            } else {
+                ContentUnavailableView(
+                    "Select a peer",
+                    systemImage: "antenna.radiowaves.left.and.right",
+                    description: Text("Tap a nearby person to start chatting.")
                 )
-                modelContext.insert(message)
-                try? modelContext.save()
             }
-            // Upsert KnownPeer and retroactively tag unlinked messages when a handshake arrives.
-            // ScheduledMessageService delivery is handled via its own Combine subscription.
-            .onReceive(multipeerSession.handshakePublisher) { peerID, uuid, displayName in
-                upsertKnownPeer(uuid: uuid, displayName: displayName)
-                retrotagMessages(peerID: peerID, uuid: uuid)
+        }
+        .onChange(of: selectedPeer) { _, peer in
+            if let peer, !peer.isConnected {
+                multipeerSession.connect(to: peer)
+            }
+        }
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
+        }
+        .sheet(isPresented: $showKnownFriends) {
+            KnownFriendsView()
+        }
+        .alert("Connection Request", isPresented: Binding(
+            get: { multipeerSession.pendingInvitationPeerName != nil },
+            set: { _ in }
+        )) {
+            Button("Accept") {
+                multipeerSession.respondToInvitation(true)
+            }
+            Button("Decline", role: .cancel) {
+                multipeerSession.respondToInvitation(false)
+            }
+        } message: {
+            if let name = multipeerSession.pendingInvitationPeerName {
+                Text("\(name) wants to chat.")
+            }
+        }
+        .onAppear {
+            scheduledMessageService.refreshScanTargets()
+        }
+        // Persist incoming chat messages from any peer at the root level so messages
+        // are saved regardless of which chat (if any) is open. Dedupe by wireID so a
+        // resent message (e.g. after a flap) doesn't create duplicate rows.
+        .onReceive(multipeerSession.messagePublisher) { text, senderName, peerIDString, wireID in
+            if let wireID,
+               let existing = try? modelContext.fetch(
+                   FetchDescriptor<Message>(predicate: #Predicate { $0.wireID == wireID })
+               ),
+               !existing.isEmpty {
+                return
+            }
+            let uuid = multipeerSession.peers.first { $0.displayName == peerIDString }?.uuid
+            let message = Message(
+                text: text,
+                senderName: senderName,
+                isOutgoing: false,
+                peerID: peerIDString,
+                peerUUID: uuid,
+                wireID: wireID
+            )
+            modelContext.insert(message)
+            try? modelContext.save()
+        }
+        // Mark the matching outgoing Message as delivered when the peer ACKs.
+        .onReceive(multipeerSession.ackPublisher) { wireID in
+            if let match = try? modelContext.fetch(
+                FetchDescriptor<Message>(predicate: #Predicate { $0.wireID == wireID })
+            ).first {
+                match.deliveredAt = Date()
                 try? modelContext.save()
             }
         }
-    }
-
-    // MARK: - Proximity scan sync
-
-    /// Syncs ProximityBluetoothService scan targets with currently pending scheduled messages.
-    private func syncProximityScanTargets() {
-        let pending = ScheduledMessageStatus.pending
-        let all = (try? modelContext.fetch(
-            FetchDescriptor<ScheduledMessage>(predicate: #Predicate { $0.status == pending })
-        )) ?? []
-        let uuids = Array(Set(all.map(\.targetPeerUUID)))
-        proximityBluetoothService.updateScanTargets(uuids)
+        // Upsert KnownPeer and retroactively tag unlinked messages when a handshake arrives.
+        // ScheduledMessageService delivery is handled via its own Combine subscription.
+        .onReceive(multipeerSession.handshakePublisher) { peerID, uuid, displayName in
+            upsertKnownPeer(uuid: uuid, displayName: displayName)
+            retrotagMessages(peerID: peerID, uuid: uuid)
+            try? modelContext.save()
+        }
     }
 
     /// Insert or update the KnownPeer record for this UUID.
@@ -131,17 +161,123 @@ struct ContentView: View {
 
     // MARK: - Sub-views
 
-    private var discoverabilityWarning: some View {
+    private var storageUnavailableWarning: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "externaldrive.badge.xmark")
+            Text("Storage is unavailable. Messages won't be saved this session.")
+                .font(.caption)
+            Spacer()
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color.red)
+    }
+
+    private var storeResetWarning: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill")
+            Text("Your message history was reset to recover from a storage error.")
+                .font(.caption)
+            Spacer()
+            Button {
+                storeWasReset = false
+            } label: {
+                Image(systemName: "xmark")
+            }
+            .buttonStyle(.plain)
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color.red.opacity(0.85))
+    }
+
+    /// Targeted diagnostic banner. Picks the most actionable failure reason between
+    /// Bluetooth power state, BT authorization, and the catch-all multipeer
+    /// "discovery failed" signal. Returns an empty view when everything is healthy.
+    @ViewBuilder
+    private var diagnosticBanner: some View {
+        switch proximityBluetoothService.bluetoothAuthorization {
+        case .denied, .restricted:
+            permissionDeniedBanner
+        case .notDetermined, .allowedAlways:
+            switch proximityBluetoothService.bluetoothState {
+            case .poweredOff:
+                bluetoothOffBanner
+            case .unauthorized:
+                permissionDeniedBanner
+            case .unsupported:
+                bluetoothUnsupportedBanner
+            case .unknown, .resetting, .poweredOn:
+                if !multipeerSession.isDiscoverable {
+                    discoveryRetryingBanner
+                }
+            @unknown default:
+                EmptyView()
+            }
+        @unknown default:
+            EmptyView()
+        }
+    }
+
+    private var bluetoothOffBanner: some View {
+        bannerRow(
+            icon: "bolt.horizontal.circle",
+            text: String(localized: "Bluetooth is off — turn it on to find nearby people."),
+            background: .orange
+        )
+    }
+
+    private var bluetoothUnsupportedBanner: some View {
+        bannerRow(
+            icon: "exclamationmark.triangle",
+            text: String(localized: "This device doesn't support Bluetooth."),
+            background: .red
+        )
+    }
+
+    private var permissionDeniedBanner: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "hand.raised.slash")
+            Text("Bluetooth permission denied.")
+                .font(.caption)
+            Spacer()
+            Button("Open Settings") {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+            }
+            .font(.caption)
+            .buttonStyle(.bordered)
+            .controlSize(.mini)
+            .tint(.white)
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(Color.orange)
+    }
+
+    private var discoveryRetryingBanner: some View {
+        bannerRow(
+            icon: "exclamationmark.triangle",
+            text: String(localized: "Discovery failed — retrying\u{2026}"),
+            background: .orange
+        )
+    }
+
+    private func bannerRow(icon: String, text: String, background: Color) -> some View {
         HStack(spacing: 6) {
-            Image(systemName: "exclamationmark.triangle")
-            Text("Discovery failed — retrying…")
+            Image(systemName: icon)
+            Text(text)
             Spacer()
         }
         .font(.caption)
         .foregroundStyle(.white)
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
-        .background(Color.orange)
+        .background(background)
     }
 
     private var emptyStateView: some View {
@@ -171,6 +307,13 @@ struct ContentView: View {
                 PeerRow(peer: peer)
             }
             .buttonStyle(.plain)
+            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                Button(role: .destructive) {
+                    multipeerSession.forget(peer: peer)
+                } label: {
+                    Label("Remove", systemImage: "trash")
+                }
+            }
         }
     }
 }
@@ -186,11 +329,14 @@ private struct PeerRow: View {
                 .fill(statusColor)
                 .frame(width: 10, height: 10)
             VStack(alignment: .leading, spacing: 2) {
-                Text(peer.id)
+                Text(peer.resolvedDisplayName ?? peer.displayName)
                     .font(.body)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
                 Text(peer.statusLabel)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
             Spacer()
             Image(systemName: "chevron.right")

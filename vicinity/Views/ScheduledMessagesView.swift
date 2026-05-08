@@ -9,11 +9,11 @@ struct ScheduledMessagesView: View {
     let peerDisplayName: String
 
     @EnvironmentObject var scheduledMessageService: ScheduledMessageService
-    @EnvironmentObject var proximityBluetoothService: ProximityBluetoothService
     @Environment(\.modelContext) private var modelContext
 
     @Query private var allScheduled: [ScheduledMessage]
     @State private var showCompose = false
+    @State private var pendingCancellation: ScheduledMessage?
 
     private var forThisPeer: [ScheduledMessage] {
         allScheduled
@@ -21,8 +21,12 @@ struct ScheduledMessagesView: View {
             .sorted { $0.createdAt > $1.createdAt }
     }
 
-    private var pending: [ScheduledMessage] { forThisPeer.filter { $0.status == .pending } }
-    private var history: [ScheduledMessage] { forThisPeer.filter { $0.status != .pending } }
+    private var pending: [ScheduledMessage] {
+        forThisPeer.filter { $0.status == .pending || $0.status == .sending }
+    }
+    private var history: [ScheduledMessage] {
+        forThisPeer.filter { $0.status == .sent || $0.status == .cancelled }
+    }
 
     var body: some View {
         List {
@@ -37,9 +41,13 @@ struct ScheduledMessagesView: View {
                 Section("Pending") {
                     ForEach(pending) { scheduled in
                         ScheduledMessageRow(scheduled: scheduled)
-                    }
-                    .onDelete { offsets in
-                        deleteScheduled(pending, at: offsets)
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                Button(role: .destructive) {
+                                    pendingCancellation = scheduled
+                                } label: {
+                                    Label("Cancel", systemImage: "xmark.circle")
+                                }
+                            }
                     }
                 }
             }
@@ -60,6 +68,7 @@ struct ScheduledMessagesView: View {
                 } label: {
                     Image(systemName: "plus")
                 }
+                .accessibilityLabel(String(localized: "New scheduled message"))
             }
         }
         .sheet(isPresented: $showCompose) {
@@ -68,21 +77,23 @@ struct ScheduledMessagesView: View {
                 peerDisplayName: peerDisplayName
             )
         }
-    }
-
-    private func deleteScheduled(_ messages: [ScheduledMessage], at offsets: IndexSet) {
-        for index in offsets {
-            try? scheduledMessageService.cancel(messages[index])
+        .confirmationDialog(
+            "Cancel this message? It will not be sent.",
+            isPresented: Binding(
+                get: { pendingCancellation != nil },
+                set: { if !$0 { pendingCancellation = nil } }
+            ),
+            titleVisibility: .visible,
+            presenting: pendingCancellation
+        ) { scheduled in
+            Button("Cancel", role: .destructive) {
+                try? scheduledMessageService.cancel(scheduled)
+                pendingCancellation = nil
+            }
+            Button("Keep", role: .cancel) {
+                pendingCancellation = nil
+            }
         }
-        syncScanTargets()
-    }
-
-    private func syncScanTargets() {
-        let pending = ScheduledMessageStatus.pending
-        let all = (try? modelContext.fetch(
-            FetchDescriptor<ScheduledMessage>(predicate: #Predicate { $0.status == pending })
-        )) ?? []
-        proximityBluetoothService.updateScanTargets(Array(Set(all.map(\.targetPeerUUID))))
     }
 }
 
@@ -115,6 +126,7 @@ private struct ScheduledMessageRow: View {
     private var statusBadge: some View {
         let (label, color): (String, Color) = switch scheduled.status {
         case .pending:   ("Pending", .orange)
+        case .sending:   ("Sending\u{2026}", .blue)
         case .sent:      ("Sent", .green)
         case .cancelled: ("Cancelled", .gray)
         }

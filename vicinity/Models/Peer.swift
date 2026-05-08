@@ -3,19 +3,18 @@ import MultipeerConnectivity
 
 /// Represents a discovered nearby peer and its current connection state.
 struct Peer: Identifiable, Equatable, Hashable {
-    let id: String  // MCPeerID.displayName
     let peerID: MCPeerID
     var state: MCSessionState
-    var uuid: String?               // populated after handshake
+    var uuid: String?                // populated after handshake
     var resolvedDisplayName: String? // display name received via handshake
+    var lastSeen: Date = Date()      // updated on every state change; drives idle pruning
 
-    static func == (lhs: Peer, rhs: Peer) -> Bool {
-        lhs.id == rhs.id
-    }
+    /// Stable identifier preferring the device UUID once the handshake has run.
+    /// Pre-handshake we fall back to the MCPeerID display name — two devices that share
+    /// a display name will still collide here, but only until handshake completes.
+    var id: String { uuid ?? peerID.displayName }
 
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(id)
-    }
+    var displayName: String { peerID.displayName }
 
     var statusLabel: String {
         switch state {

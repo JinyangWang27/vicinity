@@ -1,550 +1,721 @@
 {
-  "sourceLanguage" : "en",
-  "strings" : {
-    "About" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "关于"
+  "sourceLanguage": "en",
+  "strings": {
+    "%@ wants to chat.": {
+      "extractionState": "manual"
+    },
+    "About": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "关于"
           }
         },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "關於"
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "關於"
           }
         }
       }
     },
-    "Cancel" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "取消"
+    "Accept": {
+      "extractionState": "manual"
+    },
+    "All messages with %@ will be permanently deleted from this device.": {
+      "extractionState": "manual"
+    },
+    "Almost there": {
+      "extractionState": "manual"
+    },
+    "Appearance": {
+      "extractionState": "manual"
+    },
+    "Available once connected": {
+      "extractionState": "manual"
+    },
+    "Bluetooth": {
+      "extractionState": "manual"
+    },
+    "Bluetooth is off — turn it on to find nearby people.": {
+      "extractionState": "manual"
+    },
+    "Bluetooth permission denied.": {
+      "extractionState": "manual"
+    },
+    "Cancel": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取消"
           }
         },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "取消"
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取消"
           }
         }
       }
     },
-    "Choose Conversation" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "选择对话"
+    "Cancel this message? It will not be sent.": {
+      "extractionState": "manual"
+    },
+    "Cancelled": {
+      "extractionState": "manual"
+    },
+    "Change": {
+      "extractionState": "manual"
+    },
+    "Change your display name?": {
+      "extractionState": "manual"
+    },
+    "Chat with nearby people over Bluetooth and Wi-Fi — no internet, no accounts, no tracking.": {
+      "extractionState": "manual"
+    },
+    "Choose Conversation": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择对话"
           }
         },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "選擇對話"
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選擇對話"
           }
         }
       }
     },
-    "Connected" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已连接"
+    "Clear": {
+      "extractionState": "manual"
+    },
+    "Clear Conversation": {
+      "extractionState": "manual"
+    },
+    "Clear this conversation?": {
+      "extractionState": "manual"
+    },
+    "Connected": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已连接"
           }
         },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已連線"
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已連線"
           }
         }
       }
     },
-    "Connecting…" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "连接中…"
+    "Connecting…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "连接中…"
           }
         },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "連線中…"
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "連線中…"
           }
         }
       }
     },
-    "Device ID" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "设备 ID"
+    "Connection Request": {
+      "extractionState": "manual"
+    },
+    "Continue": {
+      "extractionState": "manual"
+    },
+    "Copy device ID": {
+      "extractionState": "manual"
+    },
+    "Dark": {
+      "extractionState": "manual"
+    },
+    "Decline": {
+      "extractionState": "manual"
+    },
+    "Delete Message": {
+      "extractionState": "manual"
+    },
+    "Delivered": {
+      "extractionState": "manual"
+    },
+    "Device ID": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "设备 ID"
           }
         },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "裝置 ID"
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "裝置 ID"
           }
         }
       }
     },
-    "Display Name" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "显示名称"
+    "Device ID copied": {
+      "extractionState": "manual"
+    },
+    "Discovery failed — retrying…": {
+      "extractionState": "manual"
+    },
+    "Display Name": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "显示名称"
           }
         },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "顯示名稱"
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "顯示名稱"
           }
         }
       }
     },
-    "Done" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "完成"
+    "Done": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完成"
           }
         },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "完成"
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完成"
           }
         }
       }
     },
-    "Export" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "导出"
+    "Export": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "导出"
           }
         },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "匯出"
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "匯出"
           }
         }
       }
     },
-    "Export Conversation as JSON" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "以 JSON 格式导出对话"
+    "Export Conversation as JSON": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "以 JSON 格式导出对话"
           }
         },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "以 JSON 格式匯出對話"
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "以 JSON 格式匯出對話"
           }
         }
       }
     },
-    "Friends appear here after your first connected chat." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "首次连线聊天后，好友将显示在这里。"
+    "Friends appear here after your first connected chat.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "首次连线聊天后，好友将显示在这里。"
           }
         },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "首次連線聊天後，好友將顯示在此處。"
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "首次連線聊天後，好友將顯示在此處。"
           }
         }
       }
     },
-    "Identity" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "身份"
+    "Get Started": {
+      "extractionState": "manual"
+    },
+    "Identity": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "身份"
           }
         },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "身份"
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "身份"
           }
         }
       }
     },
-    "Known Friends" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已知好友"
+    "Keep": {
+      "extractionState": "manual"
+    },
+    "Known Friends": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已知好友"
           }
         },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已知好友"
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已知好友"
           }
         }
       }
     },
-    "last_seen_format" : {
-      "comment" : "Shown below each friend's name in Known Friends list. %@ is a relative time string such as '2 hours ago'.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Last seen %@"
+    "Known friends": {
+      "extractionState": "manual"
+    },
+    "Last seen %@": {
+      "extractionState": "manual"
+    },
+    "Light": {
+      "extractionState": "manual"
+    },
+    "Local Network": {
+      "extractionState": "manual"
+    },
+    "Looking for nearby devices…": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在搜寻附近的设备…"
           }
         },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "上次见面 %@"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "上次見面 %@"
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在搜尋附近的裝置…"
           }
         }
       }
     },
-    "Looking for nearby devices…" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在搜寻附近的设备…"
+    "Make sure others are running Vicinity nearby.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请确保附近的人也在使用附近应用。"
           }
         },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在搜尋附近的裝置…"
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "請確保附近的人也在使用附近應用程式。"
           }
         }
       }
     },
-    "Make sure others are running Vicinity nearby." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "请确保附近的人也在使用附近应用。"
+    "Message": {
+      "comment": "Placeholder text in the chat message input field.",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "消息"
           }
         },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "請確保附近的人也在使用附近應用程式。"
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "訊息"
           }
         }
       }
     },
-    "Message" : {
-      "comment" : "Placeholder text in the chat message input field.",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "消息"
+    "Message failed to send": {
+      "extractionState": "manual"
+    },
+    "Message to send on arrival": {
+      "comment": "A label for a text field where a user can enter a message to send when a peer arrives.",
+      "isCommentAutoGenerated": true
+    },
+    "More options": {
+      "extractionState": "manual"
+    },
+    "Nearby now": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当前附近"
           }
         },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "訊息"
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目前附近"
           }
         }
       }
     },
-    "Message to send on arrival" : {
-      "comment" : "A label for a text field where a user can enter a message to send when a peer arrives.",
-      "isCommentAutoGenerated" : true
+    "New scheduled message": {
+      "extractionState": "manual"
     },
-    "Nearby now" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "当前附近"
+    "No data leaves your device except to nearby peers.": {
+      "extractionState": "stale",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "除发送至附近设备外，所有数据均保留在您的设备上。"
           }
         },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "目前附近"
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "除傳送至附近裝置外，所有資料均保留在您的裝置上。"
           }
         }
       }
     },
-    "No data leaves your device except to nearby peers." : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "除发送至附近设备外，所有数据均保留在您的设备上。"
+    "No known friends yet": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "暂无已知好友"
           }
         },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "除傳送至附近裝置外，所有資料均保留在您的裝置上。"
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "尚無已知好友"
           }
         }
       }
     },
-    "No known friends yet" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "暂无已知好友"
+    "No scheduled messages": {
+      "comment": "A message indicating that there are no scheduled messages.",
+      "isCommentAutoGenerated": true
+    },
+    "Not Connected": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未连接"
           }
         },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "尚無已知好友"
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未連線"
           }
         }
       }
     },
-    "No scheduled messages" : {
-      "comment" : "A message indicating that there are no scheduled messages.",
-      "isCommentAutoGenerated" : true
+    "Not connected": {
+      "extractionState": "manual"
     },
-    "Not Connected" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "未连接"
+    "Not in range": {
+      "extractionState": "manual"
+    },
+    "Open Settings": {
+      "extractionState": "manual"
+    },
+    "Pending": {
+      "comment": "A section header for messages that are scheduled to be sent in the future.",
+      "isCommentAutoGenerated": true
+    },
+    "Privacy": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "隐私"
           }
         },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "未連線"
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "隱私"
           }
         }
       }
     },
-    "Pending" : {
-      "comment" : "A section header for messages that are scheduled to be sent in the future.",
-      "isCommentAutoGenerated" : true
+    "Reconnect": {
+      "extractionState": "manual"
     },
-    "Privacy" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "隐私"
+    "Remove": {
+      "extractionState": "manual"
+    },
+    "Schedule": {
+      "comment": "The text of a button that schedules a message to be sent.",
+      "isCommentAutoGenerated": true
+    },
+    "Schedule Message": {
+      "comment": "The title of a view that allows scheduling a message to be sent to a peer.",
+      "isCommentAutoGenerated": true
+    },
+    "Schedule a message": {
+      "extractionState": "manual"
+    },
+    "Scheduled for %@": {
+      "comment": "The title of the view, showing the name of the peer.",
+      "isCommentAutoGenerated": true
+    },
+    "Scheduled message sent": {
+      "comment": "Title of a local notification that appears when a scheduled message is successfully sent.",
+      "isCommentAutoGenerated": true
+    },
+    "Scheduling becomes available once connected.": {
+      "extractionState": "manual"
+    },
+    "Send message": {
+      "extractionState": "manual"
+    },
+    "Sending…": {
+      "extractionState": "manual"
+    },
+    "Sent": {
+      "extractionState": "manual"
+    },
+    "Sent / Cancelled": {
+      "comment": "A section header for messages that have been sent or cancelled.",
+      "isCommentAutoGenerated": true
+    },
+    "Settings": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "设置"
           }
         },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "隱私"
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "設定"
           }
         }
       }
     },
-    "Schedule" : {
-      "comment" : "The text of a button that schedules a message to be sent.",
-      "isCommentAutoGenerated" : true
-    },
-    "Schedule Message" : {
-      "comment" : "The title of a view that allows scheduling a message to be sent to a peer.",
-      "isCommentAutoGenerated" : true
-    },
-    "Scheduled for %@" : {
-      "comment" : "The title of the view, showing the name of the peer.",
-      "isCommentAutoGenerated" : true
-    },
-    "Scheduled message sent" : {
-      "comment" : "Title of a local notification that appears when a scheduled message is successfully sent.",
-      "isCommentAutoGenerated" : true
-    },
-    "Sent / Cancelled" : {
-      "comment" : "A section header for messages that have been sent or cancelled.",
-      "isCommentAutoGenerated" : true
-    },
-    "Settings" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "设置"
+    "Share a full conversation log as a JSON file. Your Device ID is included so your identity can be restored.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "将完整对话记录分享为 JSON 文件。包含您的设备 ID，以便在新设备上恢复身份。"
           }
         },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "設定"
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "將完整對話記錄分享為 JSON 檔案。包含您的裝置 ID，以便在新裝置上還原身份。"
           }
         }
       }
     },
-    "Share a full conversation log as a JSON file. Your Device ID is included so your identity can be restored." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "将完整对话记录分享为 JSON 文件。包含您的设备 ID，以便在新设备上恢复身份。"
+    "Share this ID to restore your identity on a new device.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "分享此 ID 以在新设备上恢复您的身份。"
           }
         },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "將完整對話記錄分享為 JSON 檔案。包含您的裝置 ID，以便在新裝置上還原身份。"
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "分享此 ID 以在新裝置上還原您的身份。"
           }
         }
       }
     },
-    "Share this ID to restore your identity on a new device." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "分享此 ID 以在新设备上恢复您的身份。"
+    "Storage is unavailable. Messages won't be saved this session.": {
+      "extractionState": "manual"
+    },
+    "System": {
+      "extractionState": "manual"
+    },
+    "Tap + to schedule a message for when %@ is nearby.": {
+      "comment": "A description of what the user can do to add a scheduled message.",
+      "isCommentAutoGenerated": true
+    },
+    "Theme": {
+      "extractionState": "manual"
+    },
+    "This device doesn't support Bluetooth.": {
+      "extractionState": "manual"
+    },
+    "This message will be sent automatically when %@ comes within Bluetooth range.": {
+      "comment": "A footer section in the checkout view explaining that the message will be sent automatically when the specified peer arrives. The placeholder text inside the parentheses should be replaced with the name of the peer.",
+      "isCommentAutoGenerated": true
+    },
+    "This name is visible to nearby peers.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此名称对附近的设备可见。"
           }
         },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "分享此 ID 以在新裝置上還原您的身份。"
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此名稱對附近的裝置可見。"
           }
         }
       }
     },
-    "Tap + to schedule a message for when %@ is nearby." : {
-      "comment" : "A description of what the user can do to add a scheduled message.",
-      "isCommentAutoGenerated" : true
-    },
-    "This message will be sent automatically when %@ comes within Bluetooth range." : {
-      "comment" : "A footer section in the checkout view explaining that the message will be sent automatically when the specified peer arrives. The placeholder text inside the parentheses should be replaced with the name of the peer.",
-      "isCommentAutoGenerated" : true
-    },
-    "This name is visible to nearby peers." : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "此名称对附近的设备可见。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "此名稱對附近的裝置可見。"
+    "To %@: %@": {
+      "comment": "Body text of a notification that announces a scheduled message has been successfully sent. The first argument is a name of a person or entity to whom the message was sent. The second argument is the text of the message.",
+      "isCommentAutoGenerated": true,
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "To %1$@: %2$@"
           }
         }
       }
     },
-    "To %@: %@" : {
-      "comment" : "Body text of a notification that announces a scheduled message has been successfully sent. The first argument is a name of a person or entity to whom the message was sent. The second argument is the text of the message.",
-      "isCommentAutoGenerated" : true,
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "To %1$@: %2$@"
+    "Unknown": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未知"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未知"
           }
         }
       }
     },
-    "Unknown" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "未知"
+    "Used to discover nearby devices and wake the app for scheduled messages.": {
+      "extractionState": "manual"
+    },
+    "Used to exchange messages over peer-to-peer Wi-Fi when available.": {
+      "extractionState": "manual"
+    },
+    "Version": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "版本"
           }
         },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "未知"
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "版本"
           }
         }
       }
     },
-    "Version" : {
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "版本"
+    "Vicinity": {
+      "comment": "App name shown in the navigation bar on the main peer-list screen.",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "附近"
           }
         },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "版本"
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "附近"
           }
         }
       }
     },
-    "Vicinity" : {
-      "comment" : "App name shown in the navigation bar on the main peer-list screen.",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "附近"
+    "Vicinity needs Bluetooth and Local Network access to find people nearby. iOS will ask for both on the next screen — please allow them so the app can work.": {
+      "extractionState": "manual"
+    },
+    "Vicinity will reconnect to nearby people. This takes a few seconds.": {
+      "extractionState": "manual"
+    },
+    "Visible to nearby devices. Choose something that doesn't reveal personal information.": {
+      "extractionState": "manual"
+    },
+    "Welcome to Vicinity": {
+      "extractionState": "manual"
+    },
+    "Your message history was reset to recover from a storage error.": {
+      "extractionState": "manual"
+    },
+    "Your name": {
+      "comment": "Placeholder text in the display name text field.",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "您的名字"
           }
         },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "附近"
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "您的名字"
           }
         }
       }
     },
-    "Your name" : {
-      "comment" : "Placeholder text in the display name text field.",
-      "localizations" : {
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "您的名字"
+    "e.g. Alice": {
+      "extractionState": "manual"
+    },
+    "last_seen_format": {
+      "comment": "Shown below each friend's name in Known Friends list. %@ is a relative time string such as '2 hours ago'.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last seen %@"
           }
         },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "您的名字"
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上次见面 %@"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上次見面 %@"
           }
         }
       }
     }
   },
-  "version" : "1.1"
+  "version": "1.1"
 }

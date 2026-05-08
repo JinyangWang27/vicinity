@@ -9,11 +9,15 @@ final class ScheduledMessageService: ObservableObject {
 
     private let modelContext: ModelContext
     private weak var multipeerSession: MultipeerSession?
+    private weak var proximityBluetoothService: ProximityBluetoothService?
     private var cancellables = Set<AnyCancellable>()
 
-    init(modelContext: ModelContext, multipeerSession: MultipeerSession) {
+    init(modelContext: ModelContext,
+         multipeerSession: MultipeerSession,
+         proximityBluetoothService: ProximityBluetoothService? = nil) {
         self.modelContext = modelContext
         self.multipeerSession = multipeerSession
+        self.proximityBluetoothService = proximityBluetoothService
         subscribeToHandshakes()
         requestNotificationPermission()
     }
@@ -24,11 +28,27 @@ final class ScheduledMessageService: ObservableObject {
         let message = ScheduledMessage(targetPeerUUID: peerUUID, text: text)
         modelContext.insert(message)
         try modelContext.save()
+        refreshScanTargets()
     }
 
     func cancel(_ scheduledMessage: ScheduledMessage) throws {
         scheduledMessage.status = .cancelled
         try modelContext.save()
+        refreshScanTargets()
+    }
+
+    /// Recomputes the set of peer UUIDs the proximity BLE scan should target. Call
+    /// after any schedule/cancel; the BLE arm only wakes the app on these UUIDs.
+    func refreshScanTargets() {
+        guard let proximityBluetoothService else { return }
+        let pending = ScheduledMessageStatus.pending
+        let sending = ScheduledMessageStatus.sending
+        let all = (try? modelContext.fetch(
+            FetchDescriptor<ScheduledMessage>(
+                predicate: #Predicate { $0.status == pending || $0.status == sending }
+            )
+        )) ?? []
+        proximityBluetoothService.updateScanTargets(Array(Set(all.map(\.targetPeerUUID))))
     }
 
     func pendingMessages(forPeerUUID peerUUID: String) throws -> [ScheduledMessage] {
@@ -44,6 +64,11 @@ final class ScheduledMessageService: ObservableObject {
 
     /// Checks for pending scheduled messages for the connected peer and sends them.
     /// Called automatically via Combine subscription; also safe to call directly.
+    ///
+    /// Each message is moved through pending → sending → sent (or back to pending on
+    /// failure). Marking as `.sending` before the transmit attempt prevents a
+    /// synchronously-fired second handshake from re-fetching the same row. The wireID
+    /// is generated once and reused across retries so the receiver can dedupe.
     func handleHandshake(peerIDString: String, uuid: String, displayName: String) {
         let pending = ScheduledMessageStatus.pending
         let messages = (try? modelContext.fetch(
@@ -53,20 +78,35 @@ final class ScheduledMessageService: ObservableObject {
         )) ?? []
         guard !messages.isEmpty else { return }
 
-        // Mark as sent and persist BEFORE transmitting. If the connection drops and
-        // reconnects, a second handshake fires on the main thread — because this runs
-        // serially, the save ensures the fetch above finds no pending messages the
-        // second time, preventing duplicate delivery.
+        // Stake a claim on each row so a re-entrant handshake doesn't double-fetch.
         for scheduled in messages {
-            scheduled.status = .sent
-            scheduled.sentAt = Date()
+            if scheduled.wireID == nil { scheduled.wireID = UUID() }
+            scheduled.status = .sending
         }
         try? modelContext.save()
 
+        var deliveredTexts: [String] = []
         for scheduled in messages {
-            multipeerSession?.send(text: scheduled.text, toPeerDisplayName: peerIDString)
+            let result = multipeerSession?.send(
+                text: scheduled.text,
+                toPeerDisplayName: peerIDString,
+                wireID: scheduled.wireID
+            )
+            if result != nil {
+                scheduled.status = .sent
+                scheduled.sentAt = Date()
+                deliveredTexts.append(scheduled.text)
+            } else {
+                // Send refused (peer disconnected mid-handshake). Roll back so the next
+                // handshake retries; the receiver dedupes by wireID if both attempts land.
+                scheduled.status = .pending
+            }
         }
-        fireNotification(text: messages.map(\.text).joined(separator: ", "), toDisplayName: displayName)
+        try? modelContext.save()
+
+        if !deliveredTexts.isEmpty {
+            fireNotification(text: deliveredTexts.joined(separator: ", "), toDisplayName: displayName)
+        }
     }
 
     // MARK: - Private

@@ -5,7 +5,8 @@ import SwiftData
 struct SettingsView: View {
     @EnvironmentObject private var multipeerSession: MultipeerSession
     @Environment(\.dismiss) private var dismiss
-    @Query private var allMessages: [Message]
+    @Environment(\.modelContext) private var modelContext
+    @Query(sort: \KnownPeer.lastSeen, order: .reverse) private var knownPeers: [KnownPeer]
 
     @AppStorage("appColorScheme") private var appColorScheme: AppColorScheme = .system
 
@@ -15,6 +16,7 @@ struct SettingsView: View {
     @State private var showShareSheet = false
     @State private var showExportPicker = false
     @State private var didCopyUUID = false
+    @State private var pendingDisplayName: String?
 
     var body: some View {
         NavigationStack {
@@ -47,6 +49,9 @@ struct SettingsView: View {
                                 .foregroundStyle(didCopyUUID ? .green : .blue)
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel(didCopyUUID
+                            ? String(localized: "Device ID copied")
+                            : String(localized: "Copy device ID"))
                     }
                     Text("Share this ID to restore your identity on a new device.")
                         .font(.caption)
@@ -59,7 +64,7 @@ struct SettingsView: View {
                     Button("Export Conversation as JSON") {
                         showExportPicker = true
                     }
-                    .disabled(allMessages.isEmpty)
+                    .disabled(knownPeers.isEmpty)
                     Text("Share a full conversation log as a JSON file. Your Device ID is included so your identity can be restored.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -85,24 +90,56 @@ struct SettingsView: View {
                     Button("Done") {
                         let trimmed = displayName.trimmingCharacters(in: .whitespacesAndNewlines)
                         if !trimmed.isEmpty && trimmed != multipeerSession.myDisplayName {
-                            multipeerSession.updateDisplayName(trimmed)
-                            UserDefaults.standard.set(trimmed, forKey: "displayName")
+                            // Display-name change tears down and rebuilds the entire MC
+                            // stack — peers vanish for several seconds. Confirm first.
+                            pendingDisplayName = trimmed
+                        } else {
+                            dismiss()
                         }
-                        dismiss()
                     }
                 }
             }
+            .confirmationDialog(
+                "Change your display name?",
+                isPresented: Binding(
+                    get: { pendingDisplayName != nil },
+                    set: { if !$0 { pendingDisplayName = nil } }
+                ),
+                titleVisibility: .visible,
+                presenting: pendingDisplayName
+            ) { trimmed in
+                Button("Change") {
+                    multipeerSession.updateDisplayName(trimmed)
+                    UserDefaults.standard.set(trimmed, forKey: "displayName")
+                    pendingDisplayName = nil
+                    dismiss()
+                }
+                Button("Cancel", role: .cancel) { pendingDisplayName = nil }
+            } message: { _ in
+                Text("Vicinity will reconnect to nearby people. This takes a few seconds.")
+            }
             .sheet(isPresented: $showExportPicker) {
                 ExportPickerView(
-                    allMessages: allMessages,
-                    deviceUUID: multipeerSession.myDeviceUUID
+                    knownPeers: knownPeers,
+                    deviceUUID: multipeerSession.myDeviceUUID,
+                    fetchMessages: { uuid in
+                        (try? modelContext.fetch(
+                            FetchDescriptor<Message>(
+                                predicate: #Predicate { $0.peerUUID == uuid },
+                                sortBy: [SortDescriptor(\.timestamp)]
+                            )
+                        )) ?? []
+                    }
                 ) { url in
                     exportURL = url
                     showExportPicker = false
                     showShareSheet = url != nil
                 }
             }
-            .sheet(isPresented: $showShareSheet) {
+            .sheet(isPresented: $showShareSheet, onDismiss: {
+                if let url = exportURL { ExportManager.cleanup(url) }
+                exportURL = nil
+            }) {
                 if let url = exportURL {
                     ShareSheet(items: [url])
                 }
@@ -117,27 +154,23 @@ struct SettingsView: View {
 
 // MARK: - ExportPickerView
 
-/// Lets users pick which peer's conversation to export.
+/// Lets users pick which peer's conversation to export. The picker reads from
+/// KnownPeer rather than scanning every Message, and only fetches messages for
+/// the chosen peer when the user actually taps a row.
 private struct ExportPickerView: View {
-    let allMessages: [Message]
+    let knownPeers: [KnownPeer]
     let deviceUUID: String
+    let fetchMessages: (String) -> [Message]
     let onSelect: (URL?) -> Void
-
-    private var peers: [String] {
-        Array(Set(allMessages.map { $0.peerID })).sorted()
-    }
 
     var body: some View {
         NavigationStack {
-            List(peers, id: \.self) { peerID in
-                Button(peerID) {
-                    let msgs = allMessages
-                        .filter { $0.peerID == peerID }
-                        .sorted { $0.timestamp < $1.timestamp }
-                    let peerUUID = msgs.first?.peerUUID
+            List(knownPeers) { known in
+                Button(known.displayName) {
+                    let msgs = fetchMessages(known.uuid)
                     onSelect(ExportManager.exportJSON(
-                        peerName: peerID,
-                        peerUUID: peerUUID,
+                        peerName: known.displayName,
+                        peerUUID: known.uuid,
                         deviceUUID: deviceUUID,
                         messages: msgs
                     ))
