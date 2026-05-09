@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		1F7D0674BA584697B8C5DE82CD97CBCE /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E964F09EE3764B95B077C6E2EA225F46 /* Assets.xcassets */; };
-		AB58ECC02F84149F004CD4DF /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB58ECBD2F84149F004CD4DF /* OnboardingView.swift */; };
 		AB58ECB22F84149F004CD4DF /* ExportManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB58ECAB2F84149F004CD4DF /* ExportManager.swift */; };
 		AB58ECB32F84149F004CD4DF /* MultipeerSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB58ECA72F84149F004CD4DF /* MultipeerSession.swift */; };
 		AB58ECB42F84149F004CD4DF /* KnownFriendsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB58ECAF2F84149F004CD4DF /* KnownFriendsView.swift */; };
@@ -22,6 +21,7 @@
 		AB58ECBC2F84149F004CD4DF /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = AB58ECA12F84149F004CD4DF /* InfoPlist.xcstrings */; };
 		AB58ECBE2F84149F004CD4DF /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = AB58ECA22F84149F004CD4DF /* Localizable.xcstrings */; };
 		AB58ECBF2F84149F004CD4DF /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = AB58ECA92F84149F004CD4DF /* PrivacyInfo.xcprivacy */; };
+		AB58ECC02F84149F004CD4DF /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB58ECBD2F84149F004CD4DF /* OnboardingView.swift */; };
 		AB62D1B92F85619F0011BAD6 /* ScheduledMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB62D1B82F85619F0011BAD6 /* ScheduledMessage.swift */; };
 		AB62D1BD2F8565340011BAD6 /* ScheduledMessageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB62D1BB2F8565340011BAD6 /* ScheduledMessageService.swift */; };
 		AB62D1BE2F8565340011BAD6 /* ProximityBluetoothService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB62D1BA2F8565340011BAD6 /* ProximityBluetoothService.swift */; };
@@ -270,6 +270,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
+				DEVELOPMENT_TEAM = YBHV598MUV;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = vicinity/Info.plist;
@@ -301,6 +302,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
+				DEVELOPMENT_TEAM = YBHV598MUV;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = vicinity/Info.plist;
@@ -419,6 +421,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEPLOYMENT_POSTPROCESSING = YES;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -431,15 +434,14 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LLVM_LTO = monolithic;
 				MTL_FAST_MATH = YES;
 				SDKROOT = iphoneos;
+				STRIP_INSTALLED_PRODUCT = YES;
+				STRIP_SWIFT_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-Osize";
 				VALIDATE_PRODUCT = YES;
-				DEPLOYMENT_POSTPROCESSING = YES;
-				LLVM_LTO = monolithic;
-				STRIP_INSTALLED_PRODUCT = YES;
-				STRIP_SWIFT_SYMBOLS = YES;
 			};
 			name = Release;
 		};
